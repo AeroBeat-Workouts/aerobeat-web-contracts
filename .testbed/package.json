@@ -1,0 +1,12 @@
+{
+  "name": "@aerobeat/web-contracts-testbed",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "echo \"Add a contracts demo when a browser-visible contract fixture needs inspection.\"",
+    "serve": "echo \"Define host, port, cache busting, QR/link output, served roots, and secure-context handling before mobile validation.\"",
+    "test": "echo \"Add contract tests as shapes become executable.\"",
+    "test:browser": "echo \"Add Playwright checks only when browser-visible fixtures exist.\""
+  }
+}

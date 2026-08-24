@@ -1,0 +1,26 @@
+{
+  "name": "@aerobeat/web-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./service-ids": "./src/service-ids.js",
+    "./event-names": "./src/event-names.js",
+    "./element-names": "./src/element-names.js",
+    "./pose-shapes": "./src/pose-shapes.js",
+    "./input-shapes": "./src/input-shapes.js",
+    "./content-shapes": "./src/content-shapes.js"
+  },
+  "scripts": {
+    "check": "npm run check:jsdoc && npm run check:imports && npm run check:components && npm run check:console",
+    "check:jsdoc": "node scripts/validate-jsdoc-no-any.js",
+    "check:imports": "node scripts/validate-public-imports.js",
+    "check:components": "node scripts/validate-component-rules.js",
+    "check:console": "node scripts/validate-playwright-console-noise.js",
+    "test": "npm run check",
+    "test:browser": "npm run check:console",
+    "demo": "npm --prefix .testbed run demo",
+    "testbed:serve": "npm --prefix .testbed run serve"
+  }
+}
