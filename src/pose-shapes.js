@@ -31,6 +31,25 @@
  */
 
 /**
+ * @typedef {"nose" | "left_wrist" | "right_wrist"} BodyGridAnchorName
+ */
+
+/**
+ * @typedef {Object} BodyGridAnchor
+ * @property {"aerobeat/body_grid_anchor"} schema Body-grid anchor schema ID.
+ * @property {1} version Body-grid anchor schema version.
+ * @property {BodyGridAnchorName} anchor Body anchor represented by this sample.
+ * @property {boolean} valid Whether the anchor has enough signal for gameplay use.
+ * @property {number} rawX Unclamped horizontal normalized coordinate.
+ * @property {number} rawY Unclamped vertical normalized coordinate.
+ * @property {number} x Clamped horizontal normalized coordinate.
+ * @property {number} y Clamped vertical normalized coordinate.
+ * @property {number} cell Zero-based 4x3 row-major body-grid cell.
+ * @property {number} row Zero-based body-grid row.
+ * @property {number} column Zero-based body-grid column.
+ */
+
+/**
  * Pose contracts marker.
  *
  * @type {"aero.contracts.pose"}

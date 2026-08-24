@@ -9,7 +9,7 @@
  */
 
 /**
- * @typedef {"strike" | "guard" | "dodge"} BoxingChartEventKind
+ * @typedef {"straight_left" | "straight_right" | "hook_left" | "hook_right" | "uppercut_left" | "uppercut_right" | "guard" | "squat" | "weave_left" | "weave_right"} BoxingChartEventKind
  */
 
 /**

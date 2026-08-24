@@ -1,28 +1,28 @@
 // @ts-check
 
 /**
- * @typedef {"left" | "right"} InputHand
- */
-
-/**
- * @typedef {"jab" | "hook" | "uppercut" | "guard"} BoxingIntentKind
+ * @typedef {"straight_left" | "straight_right" | "uppercut_left" | "uppercut_right" | "hook_left" | "hook_right" | "guard_enabled" | "guard_disabled" | "squat_enabled" | "squat_disabled" | "weave_left_enabled" | "weave_left_disabled" | "weave_right_enabled" | "weave_right_disabled"} BoxingInputIntentName
  */
 
 /**
  * @typedef {Object} BoxingInputEvent
- * @property {InputHand} hand Hand that produced the intent.
- * @property {BoxingIntentKind} kind Boxing intent kind.
+ * @property {BoxingInputIntentName} name Canonical Boxing v1 input intent name.
  * @property {number} timestampMs Input timestamp in milliseconds.
  * @property {number} confidence Input confidence from 0 to 1.
  */
 
 /**
- * @typedef {"enter-cell" | "leave-cell" | "hold-cell"} FlowIntentKind
+ * @typedef {"left_wrist" | "right_wrist" | "nose"} BodyGridAnchorName
+ */
+
+/**
+ * @typedef {"cell_entered" | "squat_enabled" | "squat_disabled"} FlowIntentKind
  */
 
 /**
  * @typedef {Object} FlowInputEvent
- * @property {FlowIntentKind} kind Flow grid intent kind.
+ * @property {FlowIntentKind} kind Flow grid or squat intent kind.
+ * @property {BodyGridAnchorName} anchor Body anchor that produced the event.
  * @property {number} column Zero-based grid column.
  * @property {number} row Zero-based grid row.
  * @property {number} timestampMs Input timestamp in milliseconds.
