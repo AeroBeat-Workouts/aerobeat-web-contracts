@@ -14,7 +14,7 @@ It intentionally does not implement camera access, pose detection, input routing
 - `src/event-names.js` owns event name constants such as `aero:cv:pose-frame`.
 - `src/element-names.js` owns custom element registry names such as `aero-calibration-screen`.
 - `src/pose-shapes.js` is the JSDoc home for normalized pose frames and body-grid shapes.
-- `src/pose-adapter.js` defines the vendor-neutral structural `AeroPoseAdapter` lifecycle, frame/options, identity, telemetry, capabilities, and cleanup boundary.
+- `src/pose-adapter.js` defines the vendor-neutral structural `AeroPoseAdapter` lifecycle, frame/options, identity, telemetry, capabilities, and cleanup boundary. Optional execution telemetry can split end-to-end estimate time into vendor runtime inference and adapter postprocessing without exposing vendor objects.
 - `src/input-shapes.js` is the JSDoc home for gameplay-facing input event shapes.
 - `src/content-shapes.js` is the JSDoc home for map/chart/content package shapes.
 - `src/index.js` exports the public contract surface.

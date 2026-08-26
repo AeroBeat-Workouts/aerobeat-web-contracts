@@ -7,6 +7,7 @@ import {
 } from "../src/index.js";
 
 /** @typedef {import("../src/pose-adapter.js").AeroPoseAdapter} AeroPoseAdapter */
+/** @typedef {import("../src/pose-adapter.js").AeroPoseExecutionTelemetry} AeroPoseExecutionTelemetry */
 
 const subpathModule = await import("@aerobeat/web-contracts/pose-adapter");
 
@@ -65,7 +66,9 @@ const adapter = {
       detail: "Structural contract validator",
       fallback: false,
       loadDurationMs: 0,
-      estimateDurationMs: 0
+      estimateDurationMs: 3,
+      runtimeInferenceDurationMs: 2.5,
+      postprocessDurationMs: 0.5
     };
   },
   async dispose() {
@@ -105,8 +108,14 @@ assert.deepEqual(adapter.getExecutionTelemetry?.(), {
   detail: "Structural contract validator",
   fallback: false,
   loadDurationMs: 0,
-  estimateDurationMs: 0
+  estimateDurationMs: 3,
+  runtimeInferenceDurationMs: 2.5,
+  postprocessDurationMs: 0.5
 });
+
+/** @type {AeroPoseExecutionTelemetry} */
+const minimalTelemetry = { location: "unknown" };
+assert.deepEqual(minimalTelemetry, { location: "unknown" });
 
 await adapter.dispose?.();
 assert.equal(adapter.status, aeroPoseAdapterStatuses.disposed);

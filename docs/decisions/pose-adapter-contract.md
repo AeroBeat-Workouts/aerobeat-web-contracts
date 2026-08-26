@@ -18,7 +18,7 @@ The estimate options preserve the existing source ID, timestamp, mirroring, hori
 
 Adapters may expose:
 
-- `getExecutionTelemetry()` for actual execution location, provider, fallback detail, and load/estimate durations;
+- `getExecutionTelemetry()` for actual execution location, provider, fallback detail, and load/estimate durations; adapters may additionally report `runtimeInferenceDurationMs` for the vendor runtime/model call and `postprocessDurationMs` for subsequent decoding/normalization, while `estimateDurationMs` remains the end-to-end adapter estimate;
 - `capabilities` for supported execution locations, providers, mirroring, and frame-size overrides;
 - `dispose()` for model, worker, and runtime cleanup.
 

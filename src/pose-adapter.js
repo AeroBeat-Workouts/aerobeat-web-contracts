@@ -73,7 +73,9 @@ export const aeroPoseAdapterStatuses = Object.freeze({
  * @property {string} [detail] Human-readable execution, fallback, or failure detail.
  * @property {boolean} [fallback] Whether the requested path fell back to another path.
  * @property {number} [loadDurationMs] Most recent model/runtime load duration in milliseconds.
- * @property {number} [estimateDurationMs] Most recent adapter estimate duration in milliseconds.
+ * @property {number} [estimateDurationMs] Most recent end-to-end adapter estimate duration in milliseconds.
+ * @property {number} [runtimeInferenceDurationMs] Most recent vendor runtime/model invocation duration, excluding adapter postprocessing, in milliseconds.
+ * @property {number} [postprocessDurationMs] Most recent adapter decoding/normalization duration after runtime inference, in milliseconds.
  */
 
 /**
