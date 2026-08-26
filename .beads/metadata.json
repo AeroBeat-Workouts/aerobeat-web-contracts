@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "aerobeat_web_contracts",
+  "project_id": "053a66b1-cf39-4bd1-930c-3e17de983585"
+}
