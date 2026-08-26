@@ -9,13 +9,15 @@
     "./event-names": "./src/event-names.js",
     "./element-names": "./src/element-names.js",
     "./pose-shapes": "./src/pose-shapes.js",
+    "./pose-adapter": "./src/pose-adapter.js",
     "./input-shapes": "./src/input-shapes.js",
     "./content-shapes": "./src/content-shapes.js"
   },
   "scripts": {
-    "check": "npm run check:jsdoc && npm run check:imports && npm run check:components && npm run check:console",
+    "check": "npm run check:jsdoc && npm run check:imports && npm run check:pose-adapter && npm run check:components && npm run check:console",
     "check:jsdoc": "node scripts/validate-jsdoc-no-any.js",
     "check:imports": "node scripts/validate-public-imports.js",
+    "check:pose-adapter": "node scripts/validate-pose-adapter-contract.js",
     "check:components": "node scripts/validate-component-rules.js",
     "check:console": "node scripts/validate-playwright-console-noise.js",
     "test": "npm run check",

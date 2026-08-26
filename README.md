@@ -14,6 +14,7 @@ It intentionally does not implement camera access, pose detection, input routing
 - `src/event-names.js` owns event name constants such as `aero:cv:pose-frame`.
 - `src/element-names.js` owns custom element registry names such as `aero-calibration-screen`.
 - `src/pose-shapes.js` is the JSDoc home for normalized pose frames and body-grid shapes.
+- `src/pose-adapter.js` defines the vendor-neutral structural `AeroPoseAdapter` lifecycle, frame/options, identity, telemetry, capabilities, and cleanup boundary.
 - `src/input-shapes.js` is the JSDoc home for gameplay-facing input event shapes.
 - `src/content-shapes.js` is the JSDoc home for map/chart/content package shapes.
 - `src/index.js` exports the public contract surface.
@@ -64,7 +65,7 @@ npm test
 npm run test:browser
 ```
 
-The current checks are no-dependency placeholders for strict JSDoc/no-escape posture, public import boundaries, component-only screen/scene rules, and Playwright console-warning/error failure posture. Strengthen them as implementation grows.
+The checks enforce strict JSDoc/no-escape posture, public import boundaries, the executable generic pose-adapter contract, component-only screen/scene rules, and Playwright console-warning/error failure posture. The adapter rationale and compatibility boundary are recorded in `docs/decisions/pose-adapter-contract.md`.
 
 ## Documentation Handoff
 
