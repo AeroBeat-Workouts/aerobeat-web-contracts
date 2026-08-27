@@ -14,7 +14,8 @@
     "./content-shapes": "./src/content-shapes.js"
   },
   "scripts": {
-    "check": "npm run check:jsdoc && npm run check:imports && npm run check:pose-adapter && npm run check:components && npm run check:console",
+    "check": "npm run check:jsdoc && npm run check:imports && npm run check:pose-adapter && npm run check:pose-routing && npm run check:components && npm run check:console",
+    "check:pose-routing": "node scripts/validate-pose-routing-contract.js",
     "check:jsdoc": "node scripts/validate-jsdoc-no-any.js",
     "check:imports": "node scripts/validate-public-imports.js",
     "check:pose-adapter": "node scripts/validate-pose-adapter-contract.js",

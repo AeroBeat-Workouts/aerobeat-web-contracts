@@ -9,6 +9,11 @@
  * @property {BoxingInputIntentName} name Canonical Boxing v1 input intent name.
  * @property {number} timestampMs Input timestamp in milliseconds.
  * @property {number} confidence Input confidence from 0 to 1.
+ * @property {import("./pose-shapes.js").AeroPoseSampleProvenance} [provenance] Additive measured or predicted gameplay source.
+ * @property {number} [measurementTimestampMs] Additive latest real measurement timestamp.
+ * @property {number} [predictionHorizonMs] Additive prediction horizon; zero for measured input.
+ * @property {string} [measuredSourceFrameId] Additive epoch-qualified identity of the latest real source frame.
+ * @property {string} [routeEpoch] Additive lifecycle epoch used by that measurement identity.
  */
 
 /**
@@ -27,6 +32,11 @@
  * @property {number} row Zero-based grid row.
  * @property {number} timestampMs Input timestamp in milliseconds.
  * @property {number} confidence Input confidence from 0 to 1.
+ * @property {import("./pose-shapes.js").AeroPoseSampleProvenance} [provenance] Additive measured or predicted gameplay source.
+ * @property {number} [measurementTimestampMs] Additive latest real measurement timestamp.
+ * @property {number} [predictionHorizonMs] Additive prediction horizon; zero for measured input.
+ * @property {string} [measuredSourceFrameId] Additive epoch-qualified identity of the latest real source frame.
+ * @property {string} [routeEpoch] Additive lifecycle epoch used by that measurement identity.
  */
 
 /**

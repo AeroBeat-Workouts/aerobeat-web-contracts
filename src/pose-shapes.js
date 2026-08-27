@@ -17,6 +17,29 @@
  */
 
 /**
+ * @typedef {"measured" | "predicted"} AeroPoseSampleProvenance
+ */
+
+/**
+ * Truthfully tagged pose sample used only after measured CV output enters gameplay routing.
+ * It is deliberately separate from NormalizedPoseFrame so an estimate cannot masquerade
+ * as adapter output.
+ *
+ * @typedef {Object} AeroPoseRoutingSample
+ * @property {"aerobeat/pose_routing_sample"} schema Routing sample schema ID.
+ * @property {1} version Routing sample schema version.
+ * @property {string} sourceId Measured source identifier.
+ * @property {string} routeEpoch Lifecycle generation assigned by the routing owner.
+ * @property {string} measuredSourceFrameId Stable epoch-qualified identity of the latest real source frame.
+ * @property {number} targetTimestampMs Gameplay/media time represented by this sample.
+ * @property {number} measurementTimestampMs Timestamp of the latest real measurement.
+ * @property {number} predictionHorizonMs Target minus measurement time; zero for measured samples.
+ * @property {AeroPoseSampleProvenance} provenance Real measurement or bounded prediction.
+ * @property {readonly NormalizedPoseLandmark[]} landmarks Normalized landmark list.
+ * @property {boolean} mirrored Whether the source is mirrored for player-facing presentation.
+ */
+
+/**
  * @typedef {Object} BodyGridCell
  * @property {number} column Zero-based body-grid column.
  * @property {number} row Zero-based body-grid row.
@@ -55,3 +78,9 @@
  * @type {"aero.contracts.pose"}
  */
 export const poseContractsId = "aero.contracts.pose";
+
+/** @type {"aerobeat/pose_routing_sample"} */
+export const aeroPoseRoutingSampleSchema = "aerobeat/pose_routing_sample";
+
+/** @type {readonly AeroPoseSampleProvenance[]} */
+export const aeroPoseSampleProvenances = Object.freeze(["measured", "predicted"]);

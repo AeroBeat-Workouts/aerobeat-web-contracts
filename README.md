@@ -13,7 +13,7 @@ It intentionally does not implement camera access, pose detection, input routing
 - `src/service-ids.js` owns service ID constants such as `aero.cv.pose`.
 - `src/event-names.js` owns event name constants such as `aero:cv:pose-frame`.
 - `src/element-names.js` owns custom element registry names such as `aero-calibration-screen`.
-- `src/pose-shapes.js` is the JSDoc home for normalized pose frames and body-grid shapes.
+- `src/pose-shapes.js` is the JSDoc home for normalized measured pose frames, body-grid shapes, and the separate provenance-tagged gameplay-routing sample. Predicted samples carry distinct measurement/target timestamps and never masquerade as CV adapter output.
 - `src/pose-adapter.js` defines the vendor-neutral structural `AeroPoseAdapter` lifecycle, frame/options, identity, telemetry, capabilities, and cleanup boundary. Optional execution telemetry can split end-to-end estimate time into vendor runtime inference and adapter postprocessing without exposing vendor objects.
 - `src/input-shapes.js` is the JSDoc home for gameplay-facing input event shapes.
 - `src/content-shapes.js` is the JSDoc home for map/chart/content package shapes.
@@ -24,7 +24,7 @@ It intentionally does not implement camera access, pose detection, input routing
 - `aerobeat-web-cv` produces normalized pose frames and owns camera/CV service implementation.
 - `aerobeat-web-input` converts pose/body-grid data into gameplay-facing input events.
 - `aerobeat-web-content` validates and loads concrete content packages.
-- `aerobeat-web-gameplay` consumes content and input contracts to run modes.
+- A future gameplay/scoring package can consume content and input contracts to run modes; no gameplay scorer exists in the current web workspace.
 - `aerobeat-web-assembly` wires concrete services together.
 
 ## Import Rules
