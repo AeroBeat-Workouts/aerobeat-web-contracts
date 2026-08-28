@@ -3,8 +3,8 @@
 /**
  * @typedef {Object} NormalizedPoseLandmark
  * @property {string} name Stable AeroBeat landmark name.
- * @property {number} x Horizontal normalized viewport position from 0 to 1.
- * @property {number} y Vertical normalized viewport position from 0 to 1.
+ * @property {number} x Horizontal normalized camera/preview position from 0 to 1; upstream owns mirroring.
+ * @property {number} y Vertical normalized camera/preview top-left position from 0 to 1.
  * @property {number} confidence Detector confidence from 0 to 1.
  */
 

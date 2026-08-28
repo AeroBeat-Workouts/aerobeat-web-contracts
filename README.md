@@ -13,19 +13,28 @@ It intentionally does not implement camera access, pose detection, input routing
 - `src/service-ids.js` owns service ID constants such as `aero.cv.pose`.
 - `src/event-names.js` owns event name constants such as `aero:cv:pose-frame`.
 - `src/element-names.js` owns custom element registry names such as `aero-calibration-screen`.
-- `src/pose-shapes.js` is the JSDoc home for normalized measured pose frames, body-grid shapes, and the separate provenance-tagged gameplay-routing sample. Predicted samples carry distinct measurement/target timestamps and never masquerade as CV adapter output.
+- `src/coordinate-spaces.js` owns explicit camera-preview, gameplay-camera, athlete, and playfield spaces plus the calibrated 4x3/8x6 top-left row-major mapping helpers.
+- `src/pose-shapes.js` owns normalized measured pose frames and the separate provenance-tagged gameplay-routing sample. Predicted samples carry distinct measurement/target timestamps and never masquerade as CV adapter output.
 - `src/pose-adapter.js` defines the vendor-neutral structural `AeroPoseAdapter` lifecycle, frame/options, identity, telemetry, capabilities, and cleanup boundary. Optional execution telemetry can split end-to-end estimate time into vendor runtime inference and adapter postprocessing without exposing vendor objects.
-- `src/input-shapes.js` is the JSDoc home for gameplay-facing input event shapes.
-- `src/content-shapes.js` is the JSDoc home for map/chart/content package shapes.
-- `src/index.js` exports the public contract surface.
+- `src/body-grid-contracts.js` owns calibrated anchors, cardinal cell entries, calibration/readiness, tracking-safety states, and locked production defaults.
+- `src/input-shapes.js` retains additive compatibility for current gameplay-facing input events.
+- `src/session-contracts.js` and `src/gameplay-contracts.js` own session/countdown/lease snapshots, Flow/Boxing ruleset IDs, positive measured evidence, judgement diagnostics, recipes and prototype tuning identities.
+- `src/content-shapes.js` retains baseline map/chart/package JSDoc; `src/content-contracts.js` adds immutable hash/provenance/variant/modifier/persistence identities.
+- `src/beatsaver-contracts.js` owns normalized browser-facing BeatSaver summary/version, provider-neutral source-manifest and import-job shapes without exposing provider-native objects or raw archives.
+- `src/theme-contracts.js` owns serializable theme tokens and background suggestions.
+- `src/host-contracts.js` owns exact-container capabilities, asset policy and direct host commands/events.
+- `src/iframe-contracts.js` owns the strict immediate-parent protocol and rejects raw frames, pixels, screenshots, media tracks, ZIP bytes and audio bytes.
+- `src/index.js` exports the complete public contract surface; focused subpath exports are also declared in `package.json`.
 
 ## Adjacent Repos
 
 - `aerobeat-web-cv` produces normalized pose frames and owns camera/CV service implementation.
 - `aerobeat-web-input` converts pose/body-grid data into gameplay-facing input events.
-- `aerobeat-web-content` validates and loads concrete content packages.
-- A future gameplay/scoring package can consume content and input contracts to run modes; no gameplay scorer exists in the current web workspace.
-- `aerobeat-web-assembly` wires concrete services together.
+- `aerobeat-web-vendor-beatsaver` normalizes BeatSaver acquisition and source inspection behind these contracts.
+- `aerobeat-web-content-authoring` converts provider-neutral source material into validated local packages.
+- `aerobeat-web-content` validates and loads packaged, external, and locally authored content.
+- `aerobeat-web-gameplay` consumes content/input/audio contracts to run Flow and Boxing sessions.
+- `aerobeat-web-assembly` wires concrete services into reconnectable `aero-game` instances and the strict iframe bridge.
 
 ## Import Rules
 
