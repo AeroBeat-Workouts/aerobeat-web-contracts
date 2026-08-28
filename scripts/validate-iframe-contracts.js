@@ -22,10 +22,8 @@ for (const alias of [
   "PIXEL_DATA",
   "screen_capture",
   "MEDIA_STREAM",
-  "stream",
   "stream-track",
   "media-track",
-  "Track",
   "VIDEO_FRAME",
   "zip_archive",
   "archiveBytes",
@@ -36,7 +34,13 @@ for (const alias of [
 assert.equal(isSafeIframePayload({
   landmarks: [{ name: "nose", x: 0.1, y: 0.2, confidence: 0.9 }],
   sourceFrameId: "epoch:1",
-  telemetry: { score: 2, state: "playing", audioPositionMs: 120 }
+  telemetry: {
+    score: 2,
+    state: "playing",
+    audioPositionMs: 120,
+    stream: "telemetry-channel",
+    track: { rulesetId: "boxing_semantic_track_v1" }
+  }
 }), true);
 for (const binary of [
   new ArrayBuffer(4),
