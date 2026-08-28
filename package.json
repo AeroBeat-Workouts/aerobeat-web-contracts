@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "src/",
+    "docs/decisions/"
+  ],
   "exports": {
     ".": "./src/index.js",
     "./service-ids": "./src/service-ids.js",

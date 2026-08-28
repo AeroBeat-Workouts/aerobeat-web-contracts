@@ -1,6 +1,6 @@
 // @ts-check
 
-import { isNonEmptyString, isOneOf, isRecord } from "./contract-guards.js";
+import { hasExactKeys, isNonEmptyString, isOneOf } from "./contract-guards.js";
 import { conversionRecipeIds, rulesetIds } from "./gameplay-contracts.js";
 
 /**
@@ -66,7 +66,7 @@ export const mapModifierIds = Object.freeze([
  * @returns {value is AeroContentHash}
  */
 export function isContentHash(value) {
-  if (!isRecord(value) || value.schema !== "aerobeat/content_hash" || value.version !== 1) {
+  if (!hasExactKeys(value, ["schema", "version", "algorithm", "value"]) || value.schema !== "aerobeat/content_hash" || value.version !== 1) {
     return false;
   }
   if (value.algorithm !== "sha1" && value.algorithm !== "sha256") {
@@ -84,7 +84,7 @@ export function isContentHash(value) {
  * @returns {value is AeroContentVariantIdentity}
  */
 export function isContentVariantIdentity(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "packageId", "chartId", "rulesetId", "recipeId", "modifierIds", "mapHash", "scoreIdentityHash", "ranked"]) &&
     value.schema === "aerobeat/content_variant_identity" &&
     value.version === 1 &&
     isNonEmptyString(value.packageId) &&
@@ -103,7 +103,7 @@ export function isContentVariantIdentity(value) {
  */
 export function isPersistenceHandle(value) {
   const storageIds = /** @type {const} */ (["indexeddb", "memory", "external_url"]);
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "storage", "namespace", "key", "packageId", "packageHash"]) &&
     value.schema === "aerobeat/persistence_handle" &&
     value.version === 1 &&
     isOneOf(value.storage, storageIds) &&
@@ -118,7 +118,7 @@ export function isPersistenceHandle(value) {
  * @returns {value is AeroContentProvenance}
  */
 export function isContentProvenance(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "sourceProvider", "sourceId", "sourceVersionHash", "sourceDifficulty", "recipeVersion", "sourceEventIds"]) &&
     value.schema === "aerobeat/content_provenance" &&
     value.version === 1 &&
     isNonEmptyString(value.sourceProvider) &&

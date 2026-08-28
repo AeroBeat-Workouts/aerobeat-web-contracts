@@ -1,6 +1,6 @@
 // @ts-check
 
-import { isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isRecord } from "./contract-guards.js";
+import { hasExactKeys, isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isRecord } from "./contract-guards.js";
 
 /**
  * @typedef {"configure" | "start" | "pause" | "resume" | "stop" | "reset_calibration" | "request_fullscreen" | "select_content" | "select_variant" | "browse_beatsaver" | "import_beatsaver" | "import_local_zip" | "cancel_import" | "delete_package" | "set_theme" | "destroy"} AeroGameCommandType
@@ -38,6 +38,16 @@ import { isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isRecord } from "
  * @property {number} devicePixelRatio Effective device-pixel ratio.
  * @property {boolean} visible Whether the owning document/iframe is visible.
  * @property {boolean} fullscreen Whether the child game element is fullscreen.
+ */
+
+/**
+ * @typedef {Object} AeroFullscreenSnapshot
+ * @property {"aerobeat/fullscreen_snapshot"} schema Schema ID.
+ * @property {1} version Schema version.
+ * @property {boolean} supported Whether fullscreen is available and delegated.
+ * @property {boolean} active Whether this game element is currently fullscreen.
+ * @property {boolean} requestPending Whether a child-owned request is pending.
+ * @property {string | null} errorCode Stable failure code for the latest request.
  */
 
 /**
@@ -121,7 +131,7 @@ export const defaultAssetPolicy = Object.freeze({
  * @returns {value is AeroGameCommand}
  */
 export function isGameCommand(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "commandId", "type", "payload"]) &&
     value.schema === "aerobeat/game_command" &&
     value.version === 1 &&
     isNonEmptyString(value.commandId) &&
@@ -134,7 +144,7 @@ export function isGameCommand(value) {
  * @returns {value is AeroGameEvent}
  */
 export function isGameEvent(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "eventId", "type", "timestampMs", "payload"]) &&
     value.schema === "aerobeat/game_event" &&
     value.version === 1 &&
     isNonEmptyString(value.eventId) &&
@@ -145,10 +155,38 @@ export function isGameEvent(value) {
 
 /**
  * @param {unknown} value
+ * @returns {value is AeroFullscreenSnapshot}
+ */
+export function isFullscreenSnapshot(value) {
+  return hasExactKeys(value, ["schema", "version", "supported", "active", "requestPending", "errorCode"]) &&
+    value.schema === "aerobeat/fullscreen_snapshot" &&
+    value.version === 1 &&
+    typeof value.supported === "boolean" &&
+    typeof value.active === "boolean" &&
+    typeof value.requestPending === "boolean" &&
+    (value.errorCode === null || isNonEmptyString(value.errorCode));
+}
+
+/**
+ * @param {unknown} value
  * @returns {value is AeroGameCapabilities}
  */
 export function isGameCapabilities(value) {
-  if (!isRecord(value)) {
+  const exactKeys = [
+    "schema",
+    "version",
+    "secureContext",
+    "camera",
+    "fullscreen",
+    "autoplay",
+    "webgl2",
+    "indexedDb",
+    "worker",
+    "directBeatSaverCors",
+    "localZipImport",
+    "limitations"
+  ];
+  if (!hasExactKeys(value, exactKeys)) {
     return false;
   }
   const booleanKeys = [
@@ -173,7 +211,7 @@ export function isGameCapabilities(value) {
  * @returns {value is AeroContainerSnapshot}
  */
 export function isContainerSnapshot(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "widthCssPx", "heightCssPx", "devicePixelRatio", "visible", "fullscreen"]) &&
     value.schema === "aerobeat/container_snapshot" &&
     value.version === 1 &&
     isNonNegativeFiniteNumber(value.widthCssPx) &&
@@ -188,7 +226,16 @@ export function isContainerSnapshot(value) {
  * @returns {value is AeroAssetPolicy}
  */
 export function isAssetPolicy(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, [
+    "schema",
+    "version",
+    "requireChartHash",
+    "requireAudioHash",
+    "requireExternalAudioCors",
+    "requireSampledMediaCors",
+    "cosmeticBackgroundFailure",
+    "criticalAssetFailure"
+  ]) &&
     value.schema === "aerobeat/asset_policy" &&
     value.version === 1 &&
     typeof value.requireChartHash === "boolean" &&

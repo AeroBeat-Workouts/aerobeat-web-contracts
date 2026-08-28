@@ -1,6 +1,6 @@
 // @ts-check
 
-import { isNonEmptyString, isOneOf, isRecord } from "./contract-guards.js";
+import { hasExactKeys, isNonEmptyString, isOneOf, isRecord } from "./contract-guards.js";
 import { isGameCommand, isGameEvent } from "./host-contracts.js";
 
 /**
@@ -51,6 +51,62 @@ export const forbiddenIframePayloadKeys = Object.freeze([
   "zipBytes"
 ]);
 
+const forbiddenIframePayloadKeyAliases = new Set([
+  "archive",
+  "archivebuffer",
+  "archivebytes",
+  "archivedata",
+  "audiobuffer",
+  "audiobytes",
+  "audiodata",
+  "audiotrack",
+  "cameraframe",
+  "cameraframes",
+  "frame",
+  "framedata",
+  "framebuffer",
+  "frames",
+  "imagebitmap",
+  "imagepixels",
+  "mediastream",
+  "mediastreamtrack",
+  "mediatrack",
+  "pixel",
+  "pixelbuffer",
+  "pixeldata",
+  "pixels",
+  "rawaudio",
+  "rawcameraframe",
+  "rawcameraframes",
+  "rawframe",
+  "rawframes",
+  "screencapture",
+  "screenshot",
+  "screenshotbytes",
+  "screenshotdata",
+  "screenshots",
+  "stream",
+  "streamtrack",
+  "track",
+  "videoframe",
+  "videoframes",
+  "videotrack",
+  "zip",
+  "ziparchive",
+  "zipbuffer",
+  "zipbytes",
+  "zipdata"
+]);
+
+/**
+ * @param {string} key
+ * @returns {boolean}
+ */
+function isForbiddenIframePayloadKey(key) {
+  const canonicalKey = key.toLowerCase().replace(/[^a-z0-9]/gu, "");
+  return forbiddenIframePayloadKeyAliases.has(canonicalKey);
+}
+
 /**
  * @param {unknown} value
  * @param {Set<object>} seen
@@ -78,9 +134,20 @@ function isBridgeValue(value, seen) {
   if (seen.has(value)) {
     return false;
   }
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => {
+    if (typeof key !== "string") {
+      return true;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor === undefined || !descriptor.enumerable || !("value" in descriptor);
+  })) {
+    return false;
+  }
   seen.add(value);
-  for (const [key, entry] of Object.entries(value)) {
-    if (forbiddenIframePayloadKeys.includes(key) || !isBridgeValue(entry, seen)) {
+  for (const key of keys) {
+    const entry = value[/** @type {string} */ (key)];
+    if (isForbiddenIframePayloadKey(/** @type {string} */ (key)) || !isBridgeValue(entry, seen)) {
       seen.delete(value);
       return false;
     }
@@ -105,11 +172,7 @@ export function isSafeIframePayload(value) {
  * @returns {value is AeroIframeMessage}
  */
 export function isIframeMessage(value) {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const exactKeys = ["schema", "version", "kind", "messageId", "instanceId", "payload"];
-  if (Object.keys(value).length !== exactKeys.length || !Object.keys(value).every((key) => exactKeys.includes(key))) {
+  if (!hasExactKeys(value, ["schema", "version", "kind", "messageId", "instanceId", "payload"])) {
     return false;
   }
   if (
@@ -123,24 +186,20 @@ export function isIframeMessage(value) {
     return false;
   }
   if (value.kind === "handshake_request") {
-    return isRecord(value.payload) &&
-      Object.keys(value.payload).length === 1 &&
+    return hasExactKeys(value.payload, ["protocolVersion"]) &&
       value.payload.protocolVersion === 1;
   }
   if (value.kind === "handshake_ack") {
-    return isRecord(value.payload) &&
-      Object.keys(value.payload).length === 2 &&
+    return hasExactKeys(value.payload, ["protocolVersion", "accepted"]) &&
       value.payload.protocolVersion === 1 &&
       typeof value.payload.accepted === "boolean";
   }
   if (value.kind === "command") {
-    return isRecord(value.payload) &&
-      Object.keys(value.payload).length === 1 &&
+    return hasExactKeys(value.payload, ["command"]) &&
       isGameCommand(value.payload.command);
   }
   if (value.kind === "event") {
-    return isRecord(value.payload) &&
-      Object.keys(value.payload).length === 1 &&
+    return hasExactKeys(value.payload, ["event"]) &&
       isGameEvent(value.payload.event);
   }
   return true;

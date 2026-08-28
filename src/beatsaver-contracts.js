@@ -1,10 +1,10 @@
 // @ts-check
 
 import {
+  hasExactKeys,
   isNonEmptyString,
   isNonNegativeFiniteNumber,
-  isOneOf,
-  isRecord
+  isOneOf
 } from "./contract-guards.js";
 import { isContentHash, isPersistenceHandle } from "./content-contracts.js";
 
@@ -92,7 +92,7 @@ export const contentImportJobStates = Object.freeze([
  * @returns {value is AeroBeatSaverMapSummary}
  */
 export function isBeatSaverMapSummary(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "mapId", "name", "songAuthorName", "levelAuthorName", "durationSeconds", "coverUrl", "tags"]) &&
     value.schema === "aerobeat/beatsaver_map_summary" &&
     value.version === 1 &&
     isNonEmptyString(value.mapId) &&
@@ -109,7 +109,7 @@ export function isBeatSaverMapSummary(value) {
  * @returns {value is AeroBeatSaverVersionRef}
  */
 export function isBeatSaverVersionRef(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "mapId", "versionHash", "downloadUrl", "createdAt", "difficulties"]) &&
     value.schema === "aerobeat/beatsaver_version_ref" &&
     value.version === 1 &&
     isNonEmptyString(value.mapId) &&
@@ -124,11 +124,24 @@ export function isBeatSaverVersionRef(value) {
  * @returns {value is AeroBeatMapSourceManifest}
  */
 export function isBeatMapSourceManifest(value) {
-  if (!isRecord(value) || !Array.isArray(value.entries)) {
+  const exactKeys = [
+    "schema",
+    "version",
+    "sourceProvider",
+    "sourceId",
+    "sourceVersionHash",
+    "beatMapFormat",
+    "metadataPath",
+    "entries",
+    "difficultyIds",
+    "totalUncompressedBytes",
+    "archiveHash"
+  ];
+  if (!hasExactKeys(value, exactKeys) || !Array.isArray(value.entries)) {
     return false;
   }
   const entryKinds = /** @type {const} */ (["metadata", "difficulty", "audio", "image", "other"]);
-  const entriesValid = value.entries.every((entry) => isRecord(entry) &&
+  const entriesValid = value.entries.every((entry) => hasExactKeys(entry, ["path", "kind", "byteLength", "hash"]) &&
     isNonEmptyString(entry.path) &&
     !entry.path.startsWith("/") &&
     !entry.path.split("/").includes("..") &&
@@ -153,7 +166,19 @@ export function isBeatMapSourceManifest(value) {
  * @returns {value is AeroContentImportJobSnapshot}
  */
 export function isContentImportJobSnapshot(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, [
+    "schema",
+    "version",
+    "jobId",
+    "state",
+    "progress",
+    "sourceId",
+    "sourceVersionHash",
+    "difficultyId",
+    "errorCode",
+    "errorMessage",
+    "result"
+  ]) &&
     value.schema === "aerobeat/content_import_job_snapshot" &&
     value.version === 1 &&
     isNonEmptyString(value.jobId) &&

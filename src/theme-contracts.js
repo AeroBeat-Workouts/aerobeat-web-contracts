@@ -1,7 +1,7 @@
 // @ts-check
 
 import { isContentHash } from "./content-contracts.js";
-import { isNonEmptyString, isNonNegativeFiniteNumber, isRecord } from "./contract-guards.js";
+import { hasExactKeys, isNonEmptyString, isNonNegativeFiniteNumber, isRecord } from "./contract-guards.js";
 
 /**
  * @typedef {Object} AeroThemeTokens
@@ -62,7 +62,7 @@ export const backgroundSuggestionPrecedence = Object.freeze(["default", "playlis
  * @returns {value is AeroThemeDescriptor}
  */
 export function isThemeDescriptor(value) {
-  if (!isRecord(value) || !isRecord(value.tokens)) {
+  if (!hasExactKeys(value, ["schema", "version", "id", "themeVersion", "tokens", "contentHash"]) || !isRecord(value.tokens)) {
     return false;
   }
   const tokens = value.tokens;
@@ -92,7 +92,7 @@ export function isThemeDescriptor(value) {
  * @returns {value is AeroBackgroundSuggestion}
  */
 export function isBackgroundSuggestion(value) {
-  if (!isRecord(value)) {
+  if (!hasExactKeys(value, ["schema", "version", "source", "kind", "url", "hash", "themeId"])) {
     return false;
   }
   const sources = /** @type {const} */ (["default", "playlist", "song", "athlete"]);

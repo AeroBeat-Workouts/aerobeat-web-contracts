@@ -1,6 +1,6 @@
 // @ts-check
 
-import { isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isRecord } from "./contract-guards.js";
+import { hasExactKeys, isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isRecord } from "./contract-guards.js";
 
 /**
  * @typedef {"idle" | "selecting_content" | "calibrating" | "countdown" | "playing" | "paused_manual" | "paused_tracking" | "completed" | "error" | "destroyed"} AeroGameplaySessionState
@@ -119,7 +119,7 @@ export function isGameplaySessionSnapshot(value) {
  * @returns {value is AeroMediaLeaseSnapshot}
  */
 export function isMediaLeaseSnapshot(value) {
-  return isRecord(value) &&
+  return hasExactKeys(value, ["schema", "version", "ownerInstanceId", "generation", "state", "resources"]) &&
     value.schema === "aerobeat/media_lease_snapshot" &&
     value.version === 1 &&
     (value.ownerInstanceId === null || isNonEmptyString(value.ownerInstanceId)) &&

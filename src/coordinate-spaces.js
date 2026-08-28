@@ -143,10 +143,10 @@ export function normalizedPointToGridCell(point, descriptor) {
   ) {
     return null;
   }
-  const column = Math.floor(point.x * descriptor.columns);
-  const row = Math.floor(point.y * descriptor.rows);
+  const column = point.x === 0 ? 0 : Math.floor(point.x * descriptor.columns);
+  const row = point.y === 0 ? 0 : Math.floor(point.y * descriptor.rows);
   return Object.freeze({
-    id: row * descriptor.columns + column,
+    id: row === 0 && column === 0 ? 0 : row * descriptor.columns + column,
     row,
     column
   });

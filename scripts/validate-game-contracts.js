@@ -18,11 +18,15 @@ import {
   isContainerSnapshot,
   isContentVariantIdentity,
   isCountdownSnapshot,
+  isFullscreenSnapshot,
   isGameCapabilities,
+  isGameCommand,
+  isGameEvent,
   isGameplayEvidenceSnapshot,
   isGameplayJudgement,
   isGameplaySessionSnapshot,
   isMediaLeaseSnapshot,
+  isPersistenceHandle,
   isPrototypeTuningIdentity,
   isThemeDescriptor,
   mapModifierIds,
@@ -102,6 +106,8 @@ const manifest = {
 };
 assert.equal(isBeatMapSourceManifest(manifest), true);
 assert.equal(isBeatMapSourceManifest({ ...manifest, entries: [{ ...manifest.entries[0], path: "../escape.dat" }] }), false);
+assert.equal(isBeatMapSourceManifest({ ...manifest, providerNative: { raw: true } }), false);
+assert.equal(isBeatMapSourceManifest({ ...manifest, entries: [{ ...manifest.entries[0], bytes: new Uint8Array([1]) }] }), false);
 
 const persistence = {
   schema: "aerobeat/persistence_handle",
@@ -112,8 +118,10 @@ const persistence = {
   packageId: "pkg-1",
   packageHash: sha256
 };
+assert.equal(isPersistenceHandle(persistence), true);
+assert.equal(isPersistenceHandle({ ...persistence, database: { providerNative: true } }), false);
 assert.equal(contentImportJobStates.includes("converting"), true);
-assert.equal(isContentImportJobSnapshot({
+const importJob = {
   schema: "aerobeat/content_import_job_snapshot",
   version: 1,
   jobId: "job-1",
@@ -125,7 +133,9 @@ assert.equal(isContentImportJobSnapshot({
   errorCode: null,
   errorMessage: null,
   result: persistence
-}), true);
+};
+assert.equal(isContentImportJobSnapshot(importJob), true);
+assert.equal(isContentImportJobSnapshot({ ...importJob, archiveBytes: new Uint8Array([1]) }), false);
 
 const anchor = {
   schema: "aerobeat/body_grid_anchor_snapshot",
@@ -220,7 +230,7 @@ assert.equal(isGameCapabilities({
   localZipImport: true,
   limitations: ["autoplay_gesture_required"]
 }), true);
-assert.equal(isContainerSnapshot({
+const container = {
   schema: "aerobeat/container_snapshot",
   version: 1,
   widthCssPx: 640,
@@ -228,16 +238,36 @@ assert.equal(isContainerSnapshot({
   devicePixelRatio: 2,
   visible: true,
   fullscreen: false
-}), true);
+};
+assert.equal(isContainerSnapshot(container), true);
+assert.equal(isContainerSnapshot({ ...container, viewportWidth: 1920 }), false);
+const fullscreen = {
+  schema: "aerobeat/fullscreen_snapshot",
+  version: 1,
+  supported: true,
+  active: false,
+  requestPending: true,
+  errorCode: null
+};
+assert.equal(isFullscreenSnapshot(fullscreen), true);
+assert.equal(isFullscreenSnapshot({ ...fullscreen, owner: "parent" }), false);
+const directCommand = { schema: "aerobeat/game_command", version: 1, commandId: "command-1", type: "start", payload: null };
+const directEvent = { schema: "aerobeat/game_event", version: 1, eventId: "event-1", type: "ready", timestampMs: 0, payload: null };
+assert.equal(isGameCommand(directCommand), true);
+assert.equal(isGameCommand({ ...directCommand, unexpected: true }), false);
+assert.equal(isGameEvent(directEvent), true);
+assert.equal(isGameEvent({ ...directEvent, unexpected: true }), false);
 assert.equal(isAssetPolicy(defaultAssetPolicy), true);
-assert.equal(isMediaLeaseSnapshot({
+const mediaLease = {
   schema: "aerobeat/media_lease_snapshot",
   version: 1,
   ownerInstanceId: "game-1",
   generation: 2,
   state: "owned",
   resources: ["camera", "audio"]
-}), true);
+};
+assert.equal(isMediaLeaseSnapshot(mediaLease), true);
+assert.equal(isMediaLeaseSnapshot({ ...mediaLease, tracks: [] }), false);
 assert.equal(isPrototypeTuningIdentity({
   schema: "aerobeat/prototype_tuning_identity",
   version: 1,

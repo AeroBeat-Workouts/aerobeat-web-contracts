@@ -22,8 +22,8 @@ It intentionally does not implement camera access, pose detection, input routing
 - `src/content-shapes.js` retains baseline map/chart/package JSDoc; `src/content-contracts.js` adds immutable hash/provenance/variant/modifier/persistence identities.
 - `src/beatsaver-contracts.js` owns normalized browser-facing BeatSaver summary/version, provider-neutral source-manifest and import-job shapes without exposing provider-native objects or raw archives.
 - `src/theme-contracts.js` owns serializable theme tokens and background suggestions.
-- `src/host-contracts.js` owns exact-container capabilities, asset policy and direct host commands/events.
-- `src/iframe-contracts.js` owns the strict immediate-parent protocol and rejects raw frames, pixels, screenshots, media tracks, ZIP bytes and audio bytes.
+- `src/host-contracts.js` owns exact-container capabilities, fullscreen state, asset policy and exact versioned direct-host command/event envelopes.
+- `src/iframe-contracts.js` owns the strict immediate-parent protocol and rejects nested case/separator aliases for raw frames, pixels, screenshots, media streams/tracks, ZIP/archive bytes and audio bytes.
 - `src/index.js` exports the complete public contract surface; focused subpath exports are also declared in `package.json`.
 
 ## Adjacent Repos

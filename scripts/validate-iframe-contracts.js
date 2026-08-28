@@ -15,8 +15,44 @@ for (const key of ["rawFrame", "pixels", "screenshot", "mediaStreamTrack", "vide
   assert.equal(forbiddenIframePayloadKeys.includes(key), true);
   assert.equal(isSafeIframePayload({ nested: { [key]: "forbidden" } }), false, `${key} must be forbidden at every depth`);
 }
-assert.equal(isSafeIframePayload({ landmarks: [{ x: 0.1, y: 0.2 }], score: 2, state: "playing" }), true);
-assert.equal(isSafeIframePayload({ bytes: new Uint8Array([1, 2, 3]) }), false);
+for (const alias of [
+  "rawframe",
+  "RAW_FRAME",
+  "raw-camera-frame",
+  "PIXEL_DATA",
+  "screen_capture",
+  "MEDIA_STREAM",
+  "stream",
+  "stream-track",
+  "media-track",
+  "Track",
+  "VIDEO_FRAME",
+  "zip_archive",
+  "archiveBytes",
+  "AUDIO_DATA"
+]) {
+  assert.equal(isSafeIframePayload({ outer: { inner: { [alias]: "forbidden" } } }), false, `${alias} alias must be forbidden at every depth`);
+}
+assert.equal(isSafeIframePayload({
+  landmarks: [{ name: "nose", x: 0.1, y: 0.2, confidence: 0.9 }],
+  sourceFrameId: "epoch:1",
+  telemetry: { score: 2, state: "playing", audioPositionMs: 120 }
+}), true);
+for (const binary of [
+  new ArrayBuffer(4),
+  new DataView(new ArrayBuffer(4)),
+  new Uint8Array([1, 2, 3]),
+  new Blob(["raw"]),
+  new Date()
+]) {
+  assert.equal(isSafeIframePayload({ data: binary }), false);
+}
+class UnsafePayload {}
+assert.equal(isSafeIframePayload({ data: new UnsafePayload() }), false);
+assert.equal(isSafeIframePayload({ [Symbol("hidden")]: "not-json" }), false);
+const accessorPayload = {};
+Object.defineProperty(accessorPayload, "landmarks", { enumerable: true, get() { throw new Error("validator must not execute accessors"); } });
+assert.equal(isSafeIframePayload(accessorPayload), false);
 assert.equal(isSafeIframePayload({ callback: () => undefined }), false);
 const cyclic = {};
 cyclic.self = cyclic;
@@ -54,6 +90,22 @@ assert.equal(isIframeMessage({
   instanceId: "game-1",
   payload: { event }
 }), true);
+assert.equal(isIframeMessage({
+  schema: "aerobeat/iframe_message",
+  version: 1,
+  kind: "command",
+  messageId: "message-command-extra",
+  instanceId: "game-1",
+  payload: { command: { ...command, unexpected: true } }
+}), false);
+assert.equal(isIframeMessage({
+  schema: "aerobeat/iframe_message",
+  version: 1,
+  kind: "event",
+  messageId: "message-event-extra",
+  instanceId: "game-1",
+  payload: { event: { ...event, unexpected: true } }
+}), false);
 
 assert.equal(isIframeMessage({
   schema: "aerobeat/iframe_message",
@@ -87,6 +139,15 @@ assert.equal(isIframeMessage({
   instanceId: "game-1",
   payload: { protocolVersion: 1 },
   unexpected: true
+}), false);
+assert.equal(isIframeMessage({
+  schema: "aerobeat/iframe_message",
+  version: 1,
+  kind: "handshake_request",
+  messageId: "message-symbol",
+  instanceId: "game-1",
+  payload: { protocolVersion: 1 },
+  [Symbol("unexpected")]: true
 }), false);
 assert.equal(isIframeMessage({
   schema: "aerobeat/iframe_message",

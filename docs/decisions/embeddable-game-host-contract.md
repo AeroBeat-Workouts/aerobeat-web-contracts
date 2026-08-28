@@ -15,6 +15,7 @@ Iframe payloads are JSON-like structured records only. Normalized landmarks, cal
 
 ## Consequences
 
-- Bridge validation rejects unknown top-level fields, unsupported versions, cyclic/class/binary payloads and forbidden media/archive keys.
+- Bridge validation rejects unknown top-level command/event/envelope fields, unsupported versions, cyclic/class/binary payloads and nested case/separator aliases of forbidden media/archive keys.
+- Direct-host command/event payload records remain the explicit versioned extension points; sibling fields cannot bypass their envelopes.
 - BeatSaver download, conversion, audio decoding and camera resources remain child-local.
 - Teardown and reconnect create fresh instance state while preserving only explicitly persisted content handles.

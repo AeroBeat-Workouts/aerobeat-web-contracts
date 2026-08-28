@@ -8,7 +8,11 @@ import {
   isOneOf,
   isRecord
 } from "./contract-guards.js";
-import { isAeroGridDescriptor } from "./coordinate-spaces.js";
+import {
+  athleteBodyGrid4x3,
+  athleteBodySubgrid8x6,
+  isAeroGridDescriptor
+} from "./coordinate-spaces.js";
 
 /**
  * @typedef {"nose" | "left_shoulder" | "right_shoulder" | "left_elbow" | "right_elbow" | "left_wrist" | "right_wrist"} AeroUpperBodyAnchorName
@@ -149,10 +153,11 @@ export function isBodyGridAnchorSnapshot(value) {
   }
   const valid = typeof value.valid === "boolean" ? value.valid : false;
   const normalizedPosition = valid
-    ? isNormalizedNumber(value.x) && isNormalizedNumber(value.y)
+    ? isNormalizedNumber(value.rawX) && isNormalizedNumber(value.rawY) && isNormalizedNumber(value.x) && isNormalizedNumber(value.y)
     : (value.x === null || isNormalizedNumber(value.x)) && (value.y === null || isNormalizedNumber(value.y));
   const nullableCell = value.cell === null || (Number.isInteger(value.cell) && Number(value.cell) >= 0 && Number(value.cell) < 12);
   const nullableSubcell = value.subcell === null || (Number.isInteger(value.subcell) && Number(value.subcell) >= 0 && Number(value.subcell) < 48);
+  const invalidHasNoScoringCell = valid || (value.cell === null && value.subcell === null);
   return value.schema === "aerobeat/body_grid_anchor_snapshot" &&
     value.version === 1 &&
     isOneOf(value.anchor, upperBodyAnchorNames) &&
@@ -165,6 +170,7 @@ export function isBodyGridAnchorSnapshot(value) {
     normalizedPosition &&
     nullableCell &&
     nullableSubcell &&
+    invalidHasNoScoringCell &&
     (!valid || (value.x !== null && value.y !== null));
 }
 
@@ -215,7 +221,19 @@ export function isCalibrationSnapshot(value) {
     typeof value.releaseRequired === "boolean" &&
     validBounds &&
     isAeroGridDescriptor(value.grid) &&
+    value.grid.id === athleteBodyGrid4x3.id &&
+    value.grid.columns === athleteBodyGrid4x3.columns &&
+    value.grid.rows === athleteBodyGrid4x3.rows &&
+    value.grid.coordinateSpace === athleteBodyGrid4x3.coordinateSpace &&
+    value.grid.indexing === athleteBodyGrid4x3.indexing &&
+    value.grid.horizontallyOpposedToCamera === athleteBodyGrid4x3.horizontallyOpposedToCamera &&
     isAeroGridDescriptor(value.subgrid) &&
+    value.subgrid.id === athleteBodySubgrid8x6.id &&
+    value.subgrid.columns === athleteBodySubgrid8x6.columns &&
+    value.subgrid.rows === athleteBodySubgrid8x6.rows &&
+    value.subgrid.coordinateSpace === athleteBodySubgrid8x6.coordinateSpace &&
+    value.subgrid.indexing === athleteBodySubgrid8x6.indexing &&
+    value.subgrid.horizontallyOpposedToCamera === athleteBodySubgrid8x6.horizontallyOpposedToCamera &&
     (value.invalidationReason === null || isNonEmptyString(value.invalidationReason));
 }
 

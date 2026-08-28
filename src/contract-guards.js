@@ -13,6 +13,28 @@ export function isRecord(value) {
 }
 
 /**
+ * Require a plain record to contain exactly the declared own enumerable keys.
+ * Payload records remain the versioned extension point; contract envelopes do not.
+ *
+ * @param {unknown} value
+ * @param {readonly string[]} expectedKeys
+ * @returns {value is Readonly<Record<string, unknown>>}
+ */
+export function hasExactKeys(value, expectedKeys) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const keys = Reflect.ownKeys(value);
+  return keys.length === expectedKeys.length && keys.every((key) => {
+    if (typeof key !== "string" || !expectedKeys.includes(key)) {
+      return false;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor !== undefined && descriptor.enumerable && "value" in descriptor;
+  });
+}
+
+/**
  * @param {unknown} value
  * @returns {value is number}
  */
