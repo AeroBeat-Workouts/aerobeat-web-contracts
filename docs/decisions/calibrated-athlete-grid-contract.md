@@ -16,6 +16,7 @@ Calibration requires measured samples and all seven upper-body anchors. Predicti
 ## Consequences
 
 - Renderers consume explicit coordinate-space metadata and cannot infer facing from preview CSS.
-- Gameplay consumes athlete-space cell IDs and exact eight-way shoulder-relative entry directions (`up`, `up-right`, `right`, `down-right`, `down`, `down-left`, `left`, `up-left`) without camera mirroring logic. The v1 entry shape and schema stay unchanged; existing cardinal string values remain valid.
+- Gameplay consumes athlete-space cell IDs and exact eight-way shoulder-relative entry directions (`up`, `up-right`, `right`, `down-right`, `down`, `down-left`, `left`, `up-left`) without camera mirroring logic. `direction` is optional: omission records a measured cell transition whose recent motion was ambiguous or below the minimum magnitude, allowing Flow dot notes to require entry without inventing directional evidence. When present it must be one of the exact eight values; present `undefined`/`null` is invalid and producers must omit the property.
+- The entry schema remains v1 because this is a backward-compatible optional-field extension: every previously valid record remains valid with identical meaning and serialized shape, while consumers must now branch on own-property presence before applying directional requirements.
 - Calibration/tracking snapshots carry generation IDs so stale evidence cannot cross recalibration.
 - Existing input-event prediction fields remain additive compatibility, but new calibrated evidence is explicitly measured.

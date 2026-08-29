@@ -35,7 +35,7 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  * @property {"measured"} provenance Evidence used by calibrated prototype scoring is measured.
  * @property {readonly AeroBoxingAction[]} activeBoxingActions Positive semantic observations; overlapping actions are allowed.
  * @property {readonly import("./body-grid-contracts.js").AeroBodyGridAnchorSnapshot[]} anchors Measured anchor snapshots.
- * @property {readonly import("./body-grid-contracts.js").AeroBodyGridCellEntry[]} entries Measured eight-way cell entries.
+ * @property {readonly import("./body-grid-contracts.js").AeroBodyGridCellEntry[]} entries Measured cell entries with optional eight-way directional evidence.
  */
 
 /**

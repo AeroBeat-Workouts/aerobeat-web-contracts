@@ -102,6 +102,15 @@ const cellEntry = {
   direction: "up",
   provenance: "measured"
 };
+const directionlessCellEntry = { ...cellEntry };
+delete directionlessCellEntry.direction;
+assert.equal(Object.hasOwn(directionlessCellEntry, "direction"), false);
+assert.equal(isBodyGridCellEntry(directionlessCellEntry), true, "measured cell entry may omit ambiguous directional evidence");
+const clonedDirectionlessCellEntry = structuredClone(directionlessCellEntry);
+assert.equal(Object.hasOwn(clonedDirectionlessCellEntry, "direction"), false);
+assert.equal(isBodyGridCellEntry(clonedDirectionlessCellEntry), true, "direction omission must survive a structured clone");
+assert.equal(isBodyGridCellEntry({ ...directionlessCellEntry, direction: undefined }), false, "present undefined direction is malformed; producers must omit the property");
+assert.equal(isBodyGridCellEntry({ ...directionlessCellEntry, direction: null }), false, "present null direction is malformed; producers must omit the property");
 for (const direction of bodyGridDirections) {
   const octantEntry = { ...cellEntry, direction };
   assert.equal(isBodyGridCellEntry(octantEntry), true, `${direction} must be a valid body-grid direction`);
@@ -124,6 +133,11 @@ for (const [field, invalidValue] of [
 }
 const nullPrototypeEntry = Object.assign(Object.create(null), cellEntry, { direction: "down-left" });
 assert.equal(isBodyGridCellEntry(nullPrototypeEntry), true, "clone-safe null-prototype records remain supported");
+const nullPrototypeDirectionlessEntry = Object.assign(Object.create(null), directionlessCellEntry);
+assert.equal(isBodyGridCellEntry(nullPrototypeDirectionlessEntry), true, "null-prototype records may explicitly omit ambiguous direction");
+const inheritedDirectionEntry = Object.assign(Object.create({ direction: "up-right" }), directionlessCellEntry);
+assert.equal(Object.hasOwn(inheritedDirectionEntry, "direction"), false);
+assert.equal(isBodyGridCellEntry(inheritedDirectionEntry), false, "inherited direction must not satisfy the own optional contract and custom prototypes remain rejected");
 const pollutedPrototypeEntry = Object.assign(Object.create({ direction: "up-right" }), cellEntry);
 assert.equal(isBodyGridCellEntry(pollutedPrototypeEntry), false, "custom prototypes must not cross the contract boundary");
 assert.equal(isBodyGridCellEntry(Object.assign(new (class Entry {})(), cellEntry)), false, "class instances must not cross the contract boundary");

@@ -71,7 +71,7 @@ import {
  * @property {number} measurementTimestampMs Real measurement timestamp.
  * @property {number} fromCell In-grid source cell.
  * @property {number} toCell In-grid destination cell.
- * @property {AeroBodyGridDirection} direction Eight-way athlete-space entry direction.
+ * @property {AeroBodyGridDirection} [direction] Eight-way athlete-space entry direction when recent motion is unambiguous. Omission records a measured cell entry without directional evidence.
  * @property {"measured"} provenance Cell entries used for calibrated evidence are measured.
  */
 
@@ -195,15 +195,18 @@ export function isBodyGridAnchorSnapshot(value) {
  * @returns {value is AeroBodyGridCellEntry}
  */
 export function isBodyGridCellEntry(value) {
-  return isRecord(value) &&
-    value.schema === "aerobeat/body_grid_cell_entry" &&
+  if (!isRecord(value)) {
+    return false;
+  }
+  const directionValid = !Object.hasOwn(value, "direction") || isOneOf(value.direction, bodyGridDirections);
+  return value.schema === "aerobeat/body_grid_cell_entry" &&
     value.version === 1 &&
     isOneOf(value.anchor, upperBodyAnchorNames) &&
     isNonEmptyString(value.calibrationId) &&
     isNonNegativeFiniteNumber(value.measurementTimestampMs) &&
     Number.isInteger(value.fromCell) && Number(value.fromCell) >= 0 && Number(value.fromCell) < 12 &&
     Number.isInteger(value.toCell) && Number(value.toCell) >= 0 && Number(value.toCell) < 12 &&
-    isOneOf(value.direction, bodyGridDirections) &&
+    directionValid &&
     value.provenance === "measured";
 }
 
