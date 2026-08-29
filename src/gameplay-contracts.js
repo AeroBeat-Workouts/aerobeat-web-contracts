@@ -1,6 +1,7 @@
 // @ts-check
 
 import {
+  hasExactKeys,
   isNonEmptyString,
   isNonNegativeFiniteNumber,
   isOneOf,
@@ -53,14 +54,20 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 
 /**
- * @typedef {Object} AeroPrototypeTuningIdentity
+ * @typedef {Object} AeroPrototypeTuningIdentityBase
  * @property {"aerobeat/prototype_tuning_identity"} schema Schema ID.
  * @property {1} version Schema version.
- * @property {string} profileId Stable profile ID.
- * @property {string} profileVersion Stable profile version.
- * @property {string} contentHash Lowercase hexadecimal content hash.
- * @property {"live_visual" | "between_run_ruleset" | "converter_regeneration"} class Tuning ownership class.
- * @property {boolean} regenerationRequired Whether changes require generated-map replacement.
+ * @property {string} profileId Stable bounded profile ID.
+ * @property {string} profileVersion Stable bounded profile version.
+ * @property {string} contentHash Bare lowercase SHA-256 content hash.
+ */
+
+/**
+ * A converter identity is pending when `regenerationRequired` is true and
+ * applied when the owning registry has matched generated-package provenance
+ * and emits false. Visual and scoring identities are always live/applied.
+ *
+ * @typedef {(AeroPrototypeTuningIdentityBase & {class:"live_visual" | "between_run_ruleset", regenerationRequired:false}) | (AeroPrototypeTuningIdentityBase & {class:"converter_regeneration", regenerationRequired:boolean})} AeroPrototypeTuningIdentity
  */
 
 /** @type {readonly AeroRulesetId[]} */
@@ -156,14 +163,20 @@ export function isGameplayJudgement(value) {
  * @returns {value is AeroPrototypeTuningIdentity}
  */
 export function isPrototypeTuningIdentity(value) {
+  const fields = ["schema", "version", "profileId", "profileVersion", "contentHash", "class", "regenerationRequired"];
   const classes = /** @type {const} */ (["live_visual", "between_run_ruleset", "converter_regeneration"]);
-  return isRecord(value) &&
+  return hasExactKeys(value, fields) &&
     value.schema === "aerobeat/prototype_tuning_identity" &&
     value.version === 1 &&
-    isNonEmptyString(value.profileId) &&
-    isNonEmptyString(value.profileVersion) &&
+    isBoundedNonEmptyString(value.profileId, 256) &&
+    isBoundedNonEmptyString(value.profileVersion, 256) &&
     typeof value.contentHash === "string" && /^[0-9a-f]{64}$/u.test(value.contentHash) &&
     isOneOf(value.class, classes) &&
     typeof value.regenerationRequired === "boolean" &&
-    (value.class === "converter_regeneration" ? value.regenerationRequired : !value.regenerationRequired);
+    (value.class === "converter_regeneration" || value.regenerationRequired === false);
+}
+
+/** @param {unknown} value @param {number} maximum */
+function isBoundedNonEmptyString(value, maximum) {
+  return typeof value === "string" && value.length > 0 && value.length <= maximum;
 }

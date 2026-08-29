@@ -11,6 +11,8 @@ Provider DTOs and raw archive entries do not become gameplay contracts. The publ
 
 Every generated playable identity includes map/package/chart hashes, ruleset, conversion recipe, ordered modifiers and provenance. Prototype score identity is partitioned from source/package identity. Composite pause-time variant changes are unranked.
 
+Prototype tuning identities are exact bounded data records. `live_visual` and `between_run_ruleset` identities always report `regenerationRequired: false`. A `converter_regeneration` identity reports `true` while its selected profile is pending package regeneration and `false` after the owning registry verifies matching generated-package provenance. The structural predicate accepts either converter boolean because provenance authority belongs to the registry/package flow; it does not infer applied truth from the class alone.
+
 The initial rulesets are `flow_grid_v1`, `boxing_semantic_track_v1`, and `boxing_spatial_grid_v1`. The initial immutable recipes are `row_family_balanced_height_v1` and `cut_family_source_height_v1`. Shadow judgements are diagnostic only.
 
 ## Consequences

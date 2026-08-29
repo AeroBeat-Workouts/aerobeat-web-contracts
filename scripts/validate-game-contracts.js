@@ -13,6 +13,7 @@ import {
   isBeatSaverVersionRef,
   isContentHash,
   isContentImportJobSnapshot,
+  isContentProvenance,
   isAssetPolicy,
   isBackgroundSuggestion,
   isContainerSnapshot,
@@ -268,15 +269,62 @@ const mediaLease = {
 };
 assert.equal(isMediaLeaseSnapshot(mediaLease), true);
 assert.equal(isMediaLeaseSnapshot({ ...mediaLease, tracks: [] }), false);
-assert.equal(isPrototypeTuningIdentity({
+const tuningIdentity = {
   schema: "aerobeat/prototype_tuning_identity",
   version: 1,
-  profileId: "converter-fast",
-  profileVersion: "1",
+  profileId: "aero.converter.canonical",
+  profileVersion: "1.0.0",
   contentHash: "c".repeat(64),
   class: "converter_regeneration",
   regenerationRequired: true
-}), true);
+};
+assert.equal(isPrototypeTuningIdentity(tuningIdentity), true, "pending converter identity is valid");
+assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, regenerationRequired: false }), true, "applied converter identity is valid after provenance matches");
+for (const profileClass of ["live_visual", "between_run_ruleset"]) {
+  assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, class: profileClass, regenerationRequired: false }), true);
+  assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, class: profileClass, regenerationRequired: true }), false, `${profileClass} cannot require regeneration`);
+}
+for (const missingField of Object.keys(tuningIdentity)) {
+  const missing = { ...tuningIdentity };
+  Reflect.deleteProperty(missing, missingField);
+  assert.equal(isPrototypeTuningIdentity(missing), false, `missing ${missingField} rejects`);
+}
+assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, unexpected: true }), false);
+assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, profileId: "x".repeat(257) }), false);
+assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, profileVersion: "x".repeat(257) }), false);
+assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, contentHash: `sha256:${"c".repeat(64)}` }), false);
+assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, contentHash: "C".repeat(64) }), false);
+assert.equal(isPrototypeTuningIdentity({ ...tuningIdentity, profileId: new Uint8Array([1]) }), false);
+class TuningIdentity { constructor() { Object.assign(this, tuningIdentity); } }
+assert.equal(isPrototypeTuningIdentity(new TuningIdentity()), false);
+const symbolicTuning = { ...tuningIdentity, [Symbol("extra")]: true };
+assert.equal(isPrototypeTuningIdentity(symbolicTuning), false);
+const hiddenTuning = { ...tuningIdentity };
+Object.defineProperty(hiddenTuning, "hidden", { value: true });
+assert.equal(isPrototypeTuningIdentity(hiddenTuning), false);
+let tuningGetterCalled = false;
+const accessorTuning = { ...tuningIdentity };
+Object.defineProperty(accessorTuning, "profileId", { enumerable: true, get() { tuningGetterCalled = true; return "unsafe"; } });
+assert.equal(isPrototypeTuningIdentity(accessorTuning), false);
+assert.equal(tuningGetterCalled, false, "tuning predicate must not invoke accessors");
+
+const provenance = {
+  schema: "aerobeat/content_provenance",
+  version: 1,
+  sourceProvider: "beatsaver",
+  sourceId: "4858",
+  sourceVersionHash: "a".repeat(40),
+  sourceDifficulty: "Expert",
+  recipeVersion: "1",
+  sourceEventIds: ["event-1"]
+};
+assert.equal(isContentProvenance(provenance), true);
+assert.equal(isContentProvenance({ ...provenance, converterProfile: tuningIdentity }), false, "content provenance exact shape remains strict");
+let provenanceGetterCalled = false;
+const accessorProvenance = { ...provenance };
+Object.defineProperty(accessorProvenance, "sourceId", { enumerable: true, get() { provenanceGetterCalled = true; return "unsafe"; } });
+assert.equal(isContentProvenance(accessorProvenance), false);
+assert.equal(provenanceGetterCalled, false, "content provenance must not invoke accessors");
 assert.equal(isThemeDescriptor({
   schema: "aerobeat/theme_descriptor",
   version: 1,
