@@ -19,7 +19,14 @@ import {
  */
 
 /**
- * @typedef {"up" | "right" | "down" | "left"} AeroCardinalDirection
+ * @typedef {"up" | "up-right" | "right" | "down-right" | "down" | "down-left" | "left" | "up-left"} AeroBodyGridDirection
+ */
+
+/**
+ * Compatibility alias for consumers that previously named this cardinal-only contract.
+ * The serialized direction field is now eight-way without changing its schema shape.
+ * @deprecated Use AeroBodyGridDirection.
+ * @typedef {AeroBodyGridDirection} AeroCardinalDirection
  */
 
 /**
@@ -64,7 +71,7 @@ import {
  * @property {number} measurementTimestampMs Real measurement timestamp.
  * @property {number} fromCell In-grid source cell.
  * @property {number} toCell In-grid destination cell.
- * @property {AeroCardinalDirection} direction Cardinal athlete-space entry direction.
+ * @property {AeroBodyGridDirection} direction Eight-way athlete-space entry direction.
  * @property {"measured"} provenance Cell entries used for calibrated evidence are measured.
  */
 
@@ -109,8 +116,17 @@ export const upperBodyAnchorNames = Object.freeze([
   "right_wrist"
 ]);
 
-/** @type {readonly AeroCardinalDirection[]} */
-export const cardinalDirections = Object.freeze(["up", "right", "down", "left"]);
+/** @type {readonly AeroBodyGridDirection[]} */
+export const bodyGridDirections = Object.freeze([
+  "up",
+  "up-right",
+  "right",
+  "down-right",
+  "down",
+  "down-left",
+  "left",
+  "up-left"
+]);
 
 /** @type {readonly AeroCalibrationState[]} */
 export const calibrationStates = Object.freeze([
@@ -187,7 +203,7 @@ export function isBodyGridCellEntry(value) {
     isNonNegativeFiniteNumber(value.measurementTimestampMs) &&
     Number.isInteger(value.fromCell) && Number(value.fromCell) >= 0 && Number(value.fromCell) < 12 &&
     Number.isInteger(value.toCell) && Number(value.toCell) >= 0 && Number(value.toCell) < 12 &&
-    isOneOf(value.direction, cardinalDirections) &&
+    isOneOf(value.direction, bodyGridDirections) &&
     value.provenance === "measured";
 }
 

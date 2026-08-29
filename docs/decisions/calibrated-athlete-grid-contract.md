@@ -16,6 +16,6 @@ Calibration requires measured samples and all seven upper-body anchors. Predicti
 ## Consequences
 
 - Renderers consume explicit coordinate-space metadata and cannot infer facing from preview CSS.
-- Gameplay consumes athlete-space cell IDs and cardinal entries without camera mirroring logic.
+- Gameplay consumes athlete-space cell IDs and exact eight-way shoulder-relative entry directions (`up`, `up-right`, `right`, `down-right`, `down`, `down-left`, `left`, `up-left`) without camera mirroring logic. The v1 entry shape and schema stay unchanged; existing cardinal string values remain valid.
 - Calibration/tracking snapshots carry generation IDs so stale evidence cannot cross recalibration.
 - Existing input-event prediction fields remain additive compatibility, but new calibrated evidence is explicitly measured.

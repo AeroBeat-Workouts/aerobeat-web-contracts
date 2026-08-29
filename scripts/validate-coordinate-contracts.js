@@ -1,9 +1,11 @@
 // @ts-check
 
 import assert from "node:assert/strict";
+import * as contracts from "../src/index.js";
 import {
   athleteBodyGrid4x3,
   athleteBodySubgrid8x6,
+  bodyGridDirections,
   calibrationDefaults,
   cameraColumnToAthleteColumn,
   cameraPreviewToAthlete,
@@ -12,6 +14,7 @@ import {
   gameplayRowToAthleteRow,
   isAeroGridDescriptor,
   isBodyGridAnchorSnapshot,
+  isBodyGridCellEntry,
   isCalibrationSnapshot,
   normalizedPointToGridCell,
   upperBodyAnchorNames
@@ -75,6 +78,58 @@ assert.equal(isBodyGridAnchorSnapshot({ ...anchor, rawX: -0.2, rawY: 1.3, valid:
 assert.equal(isBodyGridAnchorSnapshot({ ...anchor, rawX: -0.2, valid: true }), false);
 assert.equal(isBodyGridAnchorSnapshot({ ...anchor, valid: false, cell: 0, subcell: 0 }), false);
 assert.equal(isBodyGridAnchorSnapshot({ ...anchor, valid: true, cell: null }), true, "valid in-grid coordinates may retain null scoring cell only when calibration geometry rejects it downstream");
+
+assert.deepEqual(bodyGridDirections, [
+  "up",
+  "up-right",
+  "right",
+  "down-right",
+  "down",
+  "down-left",
+  "left",
+  "up-left"
+]);
+assert.equal(Object.isFrozen(bodyGridDirections), true);
+assert.equal("cardinalDirections" in contracts, false, "the runtime API must not retain a stale cardinal-only direction list");
+const cellEntry = {
+  schema: "aerobeat/body_grid_cell_entry",
+  version: 1,
+  anchor: "left_wrist",
+  calibrationId: "cal-1",
+  measurementTimestampMs: 125,
+  fromCell: 5,
+  toCell: 2,
+  direction: "up",
+  provenance: "measured"
+};
+for (const direction of bodyGridDirections) {
+  const octantEntry = { ...cellEntry, direction };
+  assert.equal(isBodyGridCellEntry(octantEntry), true, `${direction} must be a valid body-grid direction`);
+  assert.equal(isBodyGridCellEntry(structuredClone(octantEntry)), true, `${direction} must survive a structured clone`);
+}
+for (const direction of ["", "north", "up_right", "UP", " up", "right ", null, undefined, 1]) {
+  assert.equal(isBodyGridCellEntry({ ...cellEntry, direction }), false, `${String(direction)} must not be accepted as a body-grid direction`);
+}
+for (const [field, invalidValue] of [
+  ["fromCell", -1],
+  ["fromCell", 12],
+  ["fromCell", 1.5],
+  ["fromCell", Number.NaN],
+  ["toCell", -1],
+  ["toCell", 12],
+  ["toCell", 1.5],
+  ["toCell", Number.POSITIVE_INFINITY]
+]) {
+  assert.equal(isBodyGridCellEntry({ ...cellEntry, [field]: invalidValue }), false, `${field} must stay within integer cell bounds`);
+}
+const nullPrototypeEntry = Object.assign(Object.create(null), cellEntry, { direction: "down-left" });
+assert.equal(isBodyGridCellEntry(nullPrototypeEntry), true, "clone-safe null-prototype records remain supported");
+const pollutedPrototypeEntry = Object.assign(Object.create({ direction: "up-right" }), cellEntry);
+assert.equal(isBodyGridCellEntry(pollutedPrototypeEntry), false, "custom prototypes must not cross the contract boundary");
+assert.equal(isBodyGridCellEntry(Object.assign(new (class Entry {})(), cellEntry)), false, "class instances must not cross the contract boundary");
+assert.equal(isBodyGridCellEntry({ ...cellEntry, anchor: "__proto__" }), false);
+assert.equal(isBodyGridCellEntry({ ...cellEntry, provenance: "predicted" }), false);
+assert.equal(isBodyGridCellEntry({ ...cellEntry, calibrationId: "" }), false);
 
 const calibration = {
   schema: "aerobeat/calibration_snapshot",
