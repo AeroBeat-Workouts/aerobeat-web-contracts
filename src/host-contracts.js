@@ -1,6 +1,7 @@
 // @ts-check
 
 import { hasExactKeys, isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isRecord } from "./contract-guards.js";
+import { isGameplaySessionStartRequest } from "./session-contracts.js";
 
 /**
  * @typedef {"configure" | "start" | "pause" | "resume" | "stop" | "reset_calibration" | "request_fullscreen" | "select_content" | "select_variant" | "browse_beatsaver" | "import_beatsaver" | "import_local_zip" | "cancel_import" | "delete_package" | "set_theme" | "destroy"} AeroGameCommandType
@@ -16,7 +17,7 @@ import { hasExactKeys, isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isR
  * @property {1} version Schema version.
  * @property {string} commandId Caller-provided command identity.
  * @property {AeroGameCommandType} type Command type.
- * @property {Readonly<Record<string, unknown>> | null} payload Versioned command payload.
+ * @property {Readonly<Record<string, unknown>> | null} payload Versioned command payload. `start` accepts null for legacy Play or an exact AeroGameplaySessionStartRequest for explicit Play/Visual Test.
  */
 
 /**
@@ -131,12 +132,17 @@ export const defaultAssetPolicy = Object.freeze({
  * @returns {value is AeroGameCommand}
  */
 export function isGameCommand(value) {
-  return hasExactKeys(value, ["schema", "version", "commandId", "type", "payload"]) &&
-    value.schema === "aerobeat/game_command" &&
-    value.version === 1 &&
-    isNonEmptyString(value.commandId) &&
-    isOneOf(value.type, gameCommandTypes) &&
-    (value.payload === null || isRecord(value.payload));
+  if (!hasExactKeys(value, ["schema", "version", "commandId", "type", "payload"]) ||
+    value.schema !== "aerobeat/game_command" ||
+    value.version !== 1 ||
+    !isNonEmptyString(value.commandId) ||
+    !isOneOf(value.type, gameCommandTypes)) {
+    return false;
+  }
+  if (value.type === "start") {
+    return value.payload === null || isGameplaySessionStartRequest(value.payload);
+  }
+  return value.payload === null || isRecord(value.payload);
 }
 
 /**

@@ -11,6 +11,21 @@ import { hasExactKeys, isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isR
  */
 
 /**
+ * Session purpose is authoritative orchestration truth. `play` owns calibrated
+ * input and real judgement/score truth; `visual_test` is unranked, input-free
+ * presentation and must not emit gameplay judgements or scores.
+ *
+ * @typedef {"play" | "visual_test"} AeroGameplaySessionPurpose
+ */
+
+/**
+ * @typedef {Object} AeroGameplaySessionStartRequest
+ * @property {"aerobeat/gameplay_session_start"} schema Schema ID.
+ * @property {1} version Schema version.
+ * @property {AeroGameplaySessionPurpose} purpose Requested session purpose.
+ */
+
+/**
  * @typedef {Object} AeroCountdownSnapshot
  * @property {"aerobeat/countdown_snapshot"} schema Schema ID.
  * @property {1} version Schema version.
@@ -36,6 +51,29 @@ import { hasExactKeys, isNonEmptyString, isNonNegativeFiniteNumber, isOneOf, isR
  * @property {string | null} rulesetId Active ruleset identity.
  * @property {string | null} recipeId Active recipe identity.
  * @property {boolean} ranked Whether the run is eligible for ranked identity.
+ * @property {string | null} pauseReason Stable pause/error reason.
+ */
+
+/**
+ * Version 2 adds exact purpose truth while version 1 remains accepted for
+ * persisted/embedded compatibility. A visual-test snapshot is necessarily
+ * unranked, has no calibration identity, and cannot enter calibration,
+ * countdown, or tracking-loss states.
+ *
+ * @typedef {Object} AeroGameplaySessionSnapshotV2
+ * @property {"aerobeat/gameplay_session_snapshot"} schema Schema ID.
+ * @property {2} version Schema version.
+ * @property {string} sessionId Session identity.
+ * @property {AeroGameplaySessionState} state Session lifecycle state.
+ * @property {AeroGameplaySessionPurpose} purpose Authoritative session purpose.
+ * @property {number} timestampMs Snapshot timestamp.
+ * @property {number} timelinePositionMs Authoritative audio timeline position.
+ * @property {string | null} packageId Loaded package identity.
+ * @property {string | null} chartId Loaded chart identity.
+ * @property {string | null} calibrationId Active calibration identity; always null for visual test.
+ * @property {string | null} rulesetId Active ruleset identity.
+ * @property {string | null} recipeId Active recipe identity.
+ * @property {boolean} ranked Whether the run is eligible for ranked identity; always false for visual test.
  * @property {string | null} pauseReason Stable pause/error reason.
  */
 
@@ -71,8 +109,34 @@ export const countdownReasons = Object.freeze([
   "content_change"
 ]);
 
+/** @type {readonly AeroGameplaySessionPurpose[]} */
+export const gameplaySessionPurposes = Object.freeze(["play", "visual_test"]);
+
 /** @type {readonly ("camera" | "audio")[]} */
 export const mediaLeaseResources = Object.freeze(["camera", "audio"]);
+
+/**
+ * @param {unknown} value
+ * @returns {value is AeroGameplaySessionPurpose}
+ */
+export function isGameplaySessionPurpose(value) {
+  return isOneOf(value, gameplaySessionPurposes);
+}
+
+/**
+ * Validate the exact bounded Start command payload. A legacy null Start payload
+ * is interpreted by the host contract as `play`; new callers should send this
+ * record explicitly.
+ *
+ * @param {unknown} value
+ * @returns {value is AeroGameplaySessionStartRequest}
+ */
+export function isGameplaySessionStartRequest(value) {
+  return hasExactKeys(value, ["schema", "version", "purpose"]) &&
+    value.schema === "aerobeat/gameplay_session_start" &&
+    value.version === 1 &&
+    isGameplaySessionPurpose(value.purpose);
+}
 
 /**
  * @param {unknown} value
@@ -94,13 +158,25 @@ export function isCountdownSnapshot(value) {
 }
 
 /**
+ * Accept legacy version 1 snapshots and exact version 2 purpose-aware snapshots.
+ * New producers must emit version 2.
+ *
  * @param {unknown} value
- * @returns {value is AeroGameplaySessionSnapshot}
+ * @returns {value is AeroGameplaySessionSnapshot | AeroGameplaySessionSnapshotV2}
  */
 export function isGameplaySessionSnapshot(value) {
-  return isRecord(value) &&
+  if (!isRecord(value)) {
+    return false;
+  }
+  const version = Object.getOwnPropertyDescriptor(value, "version");
+  if (!version || !("value" in version)) {
+    return false;
+  }
+  if (version.value === 2) {
+    return isGameplaySessionSnapshotV2(value);
+  }
+  return version.value === 1 &&
     value.schema === "aerobeat/gameplay_session_snapshot" &&
-    value.version === 1 &&
     isNonEmptyString(value.sessionId) &&
     isOneOf(value.state, gameplaySessionStates) &&
     isNonNegativeFiniteNumber(value.timestampMs) &&
@@ -112,6 +188,38 @@ export function isGameplaySessionSnapshot(value) {
     (value.recipeId === null || isNonEmptyString(value.recipeId)) &&
     typeof value.ranked === "boolean" &&
     (value.pauseReason === null || isNonEmptyString(value.pauseReason));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is AeroGameplaySessionSnapshotV2}
+ */
+export function isGameplaySessionSnapshotV2(value) {
+  const fields = ["schema", "version", "sessionId", "state", "purpose", "timestampMs", "timelinePositionMs", "packageId", "chartId", "calibrationId", "rulesetId", "recipeId", "ranked", "pauseReason"];
+  if (!hasExactKeys(value, fields) ||
+    value.schema !== "aerobeat/gameplay_session_snapshot" ||
+    value.version !== 2 ||
+    !isBoundedNullableString(value.sessionId, 256, false) ||
+    !isOneOf(value.state, gameplaySessionStates) ||
+    !isGameplaySessionPurpose(value.purpose) ||
+    !isNonNegativeFiniteNumber(value.timestampMs) ||
+    !isNonNegativeFiniteNumber(value.timelinePositionMs) ||
+    !isBoundedNullableString(value.packageId, 512) ||
+    !isBoundedNullableString(value.chartId, 512) ||
+    !isBoundedNullableString(value.calibrationId, 256) ||
+    !isBoundedNullableString(value.rulesetId, 128) ||
+    !isBoundedNullableString(value.recipeId, 128) ||
+    typeof value.ranked !== "boolean" ||
+    !isBoundedNullableString(value.pauseReason, 256)) {
+    return false;
+  }
+  return value.purpose !== "visual_test" || (
+    value.ranked === false &&
+    value.calibrationId === null &&
+    value.state !== "calibrating" &&
+    value.state !== "countdown" &&
+    value.state !== "paused_tracking"
+  );
 }
 
 /**
@@ -128,4 +236,9 @@ export function isMediaLeaseSnapshot(value) {
     Array.isArray(value.resources) &&
     value.resources.every((item) => mediaLeaseResources.includes(item)) &&
     new Set(value.resources).size === value.resources.length;
+}
+
+/** @param {unknown} value @param {number} maximum @param {boolean} [nullable] */
+function isBoundedNullableString(value, maximum, nullable = true) {
+  return (nullable && value === null) || (typeof value === "string" && value.length > 0 && value.length <= maximum);
 }

@@ -54,6 +54,27 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 
 /**
+ * Version 2 is authoritative normal-Play judgement truth with the exact song
+ * timeline position at which gameplay committed the result. Visual Test
+ * demonstrations never create this record; they remain renderer/assembly-local.
+ *
+ * @typedef {Object} AeroGameplayJudgementV2
+ * @property {"aerobeat/gameplay_judgement"} schema Schema ID.
+ * @property {2} version Schema version.
+ * @property {"play"} sessionPurpose Only normal Play may produce real judgement truth.
+ * @property {string} eventId Authored event identity.
+ * @property {AeroRulesetId} rulesetId Ruleset identity.
+ * @property {AeroConversionRecipeId | null} recipeId Recipe identity when generated.
+ * @property {"hit" | "miss" | "ignored"} result Binary prototype result or non-scoring ignored event.
+ * @property {number} beatCenterTimestampMs Event center timestamp.
+ * @property {number} committedTimelinePositionMs Authoritative song timeline position at result commitment.
+ * @property {number | null} evidenceTimestampMs Consumed evidence timestamp.
+ * @property {number | null} timingOffsetMs Evidence minus beat center.
+ * @property {readonly AeroJudgementDiagnosticCode[]} diagnostics Detailed diagnostics.
+ * @property {boolean} shadow Whether this judgement is diagnostic-only.
+ */
+
+/**
  * @typedef {Object} AeroPrototypeTuningIdentityBase
  * @property {"aerobeat/prototype_tuning_identity"} schema Schema ID.
  * @property {1} version Schema version.
@@ -140,13 +161,25 @@ export function isGameplayEvidenceSnapshot(value) {
 }
 
 /**
+ * Accept legacy version 1 judgements and exact version 2 commitment-aware
+ * judgements. New gameplay producers must emit version 2.
+ *
  * @param {unknown} value
- * @returns {value is AeroGameplayJudgement}
+ * @returns {value is AeroGameplayJudgement | AeroGameplayJudgementV2}
  */
 export function isGameplayJudgement(value) {
-  return isRecord(value) &&
+  if (!isRecord(value)) {
+    return false;
+  }
+  const version = Object.getOwnPropertyDescriptor(value, "version");
+  if (!version || !("value" in version)) {
+    return false;
+  }
+  if (version.value === 2) {
+    return isGameplayJudgementV2(value);
+  }
+  return version.value === 1 &&
     value.schema === "aerobeat/gameplay_judgement" &&
-    value.version === 1 &&
     isNonEmptyString(value.eventId) &&
     isOneOf(value.rulesetId, rulesetIds) &&
     (value.recipeId === null || isOneOf(value.recipeId, conversionRecipeIds)) &&
@@ -155,6 +188,28 @@ export function isGameplayJudgement(value) {
     (value.evidenceTimestampMs === null || isNonNegativeFiniteNumber(value.evidenceTimestampMs)) &&
     (value.timingOffsetMs === null || (typeof value.timingOffsetMs === "number" && Number.isFinite(value.timingOffsetMs))) &&
     Array.isArray(value.diagnostics) && value.diagnostics.every((item) => isOneOf(item, judgementDiagnosticCodes)) &&
+    typeof value.shadow === "boolean";
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is AeroGameplayJudgementV2}
+ */
+export function isGameplayJudgementV2(value) {
+  const fields = ["schema", "version", "sessionPurpose", "eventId", "rulesetId", "recipeId", "result", "beatCenterTimestampMs", "committedTimelinePositionMs", "evidenceTimestampMs", "timingOffsetMs", "diagnostics", "shadow"];
+  return hasExactKeys(value, fields) &&
+    value.schema === "aerobeat/gameplay_judgement" &&
+    value.version === 2 &&
+    value.sessionPurpose === "play" &&
+    isBoundedNonEmptyString(value.eventId, 512) &&
+    isOneOf(value.rulesetId, rulesetIds) &&
+    (value.recipeId === null || isOneOf(value.recipeId, conversionRecipeIds)) &&
+    (value.result === "hit" || value.result === "miss" || value.result === "ignored") &&
+    isNonNegativeFiniteNumber(value.beatCenterTimestampMs) &&
+    isNonNegativeFiniteNumber(value.committedTimelinePositionMs) &&
+    (value.evidenceTimestampMs === null || isNonNegativeFiniteNumber(value.evidenceTimestampMs)) &&
+    (value.timingOffsetMs === null || (typeof value.timingOffsetMs === "number" && Number.isFinite(value.timingOffsetMs))) &&
+    isExactDiagnosticList(value.diagnostics) &&
     typeof value.shadow === "boolean";
 }
 
@@ -179,4 +234,20 @@ export function isPrototypeTuningIdentity(value) {
 /** @param {unknown} value @param {number} maximum */
 function isBoundedNonEmptyString(value, maximum) {
   return typeof value === "string" && value.length > 0 && value.length <= maximum;
+}
+
+/** @param {unknown} value */
+function isExactDiagnosticList(value) {
+  if (!Array.isArray(value) || value.length > judgementDiagnosticCodes.length || Reflect.ownKeys(value).length !== value.length + 1) {
+    return false;
+  }
+  const seen = new Set();
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!descriptor || !descriptor.enumerable || !("value" in descriptor) || !isOneOf(descriptor.value, judgementDiagnosticCodes) || seen.has(descriptor.value)) {
+      return false;
+    }
+    seen.add(descriptor.value);
+  }
+  return true;
 }

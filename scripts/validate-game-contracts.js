@@ -25,7 +25,12 @@ import {
   isGameEvent,
   isGameplayEvidenceSnapshot,
   isGameplayJudgement,
+  isGameplayJudgementV2,
+  isGameplaySessionPurpose,
   isGameplaySessionSnapshot,
+  isGameplaySessionSnapshotV2,
+  isGameplaySessionStartRequest,
+  gameplaySessionPurposes,
   isMediaLeaseSnapshot,
   isPersistenceHandle,
   isPrototypeTuningIdentity,
@@ -56,6 +61,10 @@ assert.equal(prototypeJudgementDefaults.timingWindowBeforeMs, 180);
 assert.equal(prototypeJudgementDefaults.checkpointFreshnessMs, 150);
 assert.equal(prototypeJudgementDefaults.straightQualificationMs, 100);
 assert.equal(prototypeJudgementDefaults.minimumPunchSpacingMs, 360);
+assert.deepEqual(gameplaySessionPurposes, ["play", "visual_test"]);
+assert.equal(isGameplaySessionPurpose("play"), true);
+assert.equal(isGameplaySessionPurpose("visual_test"), true);
+assert.equal(isGameplaySessionPurpose("test"), false);
 
 assert.equal(isContentVariantIdentity({
   schema: "aerobeat/content_variant_identity",
@@ -188,7 +197,48 @@ assert.equal(isGameplayJudgement({
   timingOffsetMs: null,
   diagnostics: ["no_input"],
   shadow: false
-}), true);
+}), true, "legacy version 1 judgement remains accepted");
+const committedJudgement = {
+  schema: "aerobeat/gameplay_judgement",
+  version: 2,
+  sessionPurpose: "play",
+  eventId: "event-1",
+  rulesetId: "boxing_spatial_grid_v1",
+  recipeId: "row_family_balanced_height_v1",
+  result: "miss",
+  beatCenterTimestampMs: 1000,
+  committedTimelinePositionMs: 1180,
+  evidenceTimestampMs: null,
+  timingOffsetMs: null,
+  diagnostics: ["no_input"],
+  shadow: false
+};
+assert.equal(isGameplayJudgementV2(committedJudgement), true);
+assert.equal(isGameplayJudgement(committedJudgement), true);
+for (const invalid of [
+  { ...committedJudgement, sessionPurpose: "visual_test" },
+  { ...committedJudgement, committedTimelinePositionMs: -1 },
+  { ...committedJudgement, committedTimelinePositionMs: Number.POSITIVE_INFINITY },
+  { ...committedJudgement, diagnostics: ["no_input", "no_input"] },
+  { ...committedJudgement, synthetic: true },
+  { ...committedJudgement, result: "great" }
+]) assert.equal(isGameplayJudgementV2(invalid), false, "synthetic, ambiguous, or unbounded judgement truth rejects");
+const missingCommitment = { ...committedJudgement }; Reflect.deleteProperty(missingCommitment, "committedTimelinePositionMs");
+assert.equal(isGameplayJudgementV2(missingCommitment), false);
+let judgementAccessorCalled = false;
+const accessorJudgement = { ...committedJudgement };
+Object.defineProperty(accessorJudgement, "committedTimelinePositionMs", { enumerable: true, get() { judgementAccessorCalled = true; return 1180; } });
+assert.equal(isGameplayJudgementV2(accessorJudgement), false);
+assert.equal(isGameplayJudgement(accessorJudgement), false);
+assert.equal(judgementAccessorCalled, false, "version 2 judgement validators must not invoke accessors");
+let diagnosticAccessorCalled = false;
+const accessorDiagnostics = [];
+Object.defineProperty(accessorDiagnostics, "0", { enumerable: true, get() { diagnosticAccessorCalled = true; return "no_input"; } });
+accessorDiagnostics.length = 1;
+assert.equal(isGameplayJudgementV2({ ...committedJudgement, diagnostics: accessorDiagnostics }), false);
+assert.equal(diagnosticAccessorCalled, false, "version 2 judgement diagnostics must not invoke accessors");
+const extraDiagnosticProperty = ["no_input"]; extraDiagnosticProperty.extra = true;
+assert.equal(isGameplayJudgementV2({ ...committedJudgement, diagnostics: extraDiagnosticProperty }), false);
 
 assert.equal(isCountdownSnapshot({
   schema: "aerobeat/countdown_snapshot",
@@ -215,7 +265,54 @@ assert.equal(isGameplaySessionSnapshot({
   recipeId: "row_family_balanced_height_v1",
   ranked: false,
   pauseReason: null
-}), true);
+}), true, "legacy version 1 session remains accepted");
+const visualTestSession = {
+  schema: "aerobeat/gameplay_session_snapshot",
+  version: 2,
+  sessionId: "session-test-1",
+  state: "playing",
+  purpose: "visual_test",
+  timestampMs: 1000,
+  timelinePositionMs: 250,
+  packageId: "pkg-1",
+  chartId: "chart-1",
+  calibrationId: null,
+  rulesetId: "flow_grid_v1",
+  recipeId: null,
+  ranked: false,
+  pauseReason: null
+};
+assert.equal(isGameplaySessionSnapshotV2(visualTestSession), true);
+assert.equal(isGameplaySessionSnapshot(visualTestSession), true);
+assert.equal(isGameplaySessionSnapshotV2({ ...visualTestSession, state: "paused_manual" }), true, "menu pause retains visual-test purpose");
+for (const invalid of [
+  { ...visualTestSession, ranked: true },
+  { ...visualTestSession, calibrationId: "cal-forbidden" },
+  { ...visualTestSession, state: "calibrating" },
+  { ...visualTestSession, state: "countdown" },
+  { ...visualTestSession, state: "paused_tracking" },
+  { ...visualTestSession, purpose: "test" },
+  { ...visualTestSession, sessionId: "x".repeat(257) },
+  { ...visualTestSession, syntheticJudgements: [] }
+]) assert.equal(isGameplaySessionSnapshotV2(invalid), false, "visual test cannot become ranked/calibrated/judgement-bearing truth");
+const normalPlaySession = { ...visualTestSession, purpose: "play", calibrationId: "cal-2", state: "countdown" };
+assert.equal(isGameplaySessionSnapshotV2(normalPlaySession), true, "normal Play retains calibration/countdown lifecycle");
+let sessionAccessorCalled = false;
+const accessorSession = { ...visualTestSession };
+Object.defineProperty(accessorSession, "purpose", { enumerable: true, get() { sessionAccessorCalled = true; return "visual_test"; } });
+assert.equal(isGameplaySessionSnapshotV2(accessorSession), false);
+assert.equal(isGameplaySessionSnapshot(accessorSession), false);
+assert.equal(sessionAccessorCalled, false, "version 2 session validators must not invoke accessors");
+const explicitTestStart = { schema: "aerobeat/gameplay_session_start", version: 1, purpose: "visual_test" };
+assert.equal(isGameplaySessionStartRequest(explicitTestStart), true);
+assert.equal(isGameplaySessionStartRequest({ ...explicitTestStart, purpose: "play" }), true);
+assert.equal(isGameplaySessionStartRequest({ ...explicitTestStart, purpose: "test" }), false);
+assert.equal(isGameplaySessionStartRequest({ ...explicitTestStart, package: {} }), false);
+let startAccessorCalled = false;
+const accessorStart = { ...explicitTestStart };
+Object.defineProperty(accessorStart, "purpose", { enumerable: true, get() { startAccessorCalled = true; return "visual_test"; } });
+assert.equal(isGameplaySessionStartRequest(accessorStart), false);
+assert.equal(startAccessorCalled, false, "start request validator must not invoke accessors");
 
 assert.equal(isGameCapabilities({
   schema: "aerobeat/game_capabilities",
@@ -254,7 +351,11 @@ assert.equal(isFullscreenSnapshot(fullscreen), true);
 assert.equal(isFullscreenSnapshot({ ...fullscreen, owner: "parent" }), false);
 const directCommand = { schema: "aerobeat/game_command", version: 1, commandId: "command-1", type: "start", payload: null };
 const directEvent = { schema: "aerobeat/game_event", version: 1, eventId: "event-1", type: "ready", timestampMs: 0, payload: null };
-assert.equal(isGameCommand(directCommand), true);
+assert.equal(isGameCommand(directCommand), true, "legacy null Start remains normal Play");
+assert.equal(isGameCommand({ ...directCommand, payload: explicitTestStart }), true, "explicit visual-test Start is valid");
+assert.equal(isGameCommand({ ...directCommand, payload: { ...explicitTestStart, purpose: "test" } }), false);
+assert.equal(isGameCommand({ ...directCommand, payload: {} }), false, "Start does not accept ambiguous payloads");
+assert.equal(isGameCommand({ ...directCommand, type: "test", payload: null }), false, "visual test is a bounded Start purpose, not an alias command");
 assert.equal(isGameCommand({ ...directCommand, unexpected: true }), false);
 assert.equal(isGameEvent(directEvent), true);
 assert.equal(isGameEvent({ ...directEvent, unexpected: true }), false);

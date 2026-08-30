@@ -77,6 +77,30 @@ assert.equal(isIframeMessage({
   instanceId: "game-1",
   payload: { command }
 }), true);
+const visualTestCommand = {
+  schema: "aerobeat/game_command",
+  version: 1,
+  commandId: "command-test-1",
+  type: "start",
+  payload: { schema: "aerobeat/gameplay_session_start", version: 1, purpose: "visual_test" }
+};
+const visualTestMessage = {
+  schema: "aerobeat/iframe_message",
+  version: 1,
+  kind: "command",
+  messageId: "message-test-1",
+  instanceId: "game-1",
+  payload: { command: visualTestCommand }
+};
+assert.equal(isIframeMessage(visualTestMessage), true, "iframe can request bounded visual test without media or package data");
+assert.equal(isIframeMessage({ ...visualTestMessage, payload: { command: { ...visualTestCommand, payload: { ...visualTestCommand.payload, package: {} } } } }), false);
+assert.equal(isIframeMessage({ ...visualTestMessage, payload: { command: { ...visualTestCommand, payload: { ...visualTestCommand.payload, purpose: "test" } } } }), false);
+assert.equal(isIframeMessage({ ...visualTestMessage, payload: { command: { ...visualTestCommand, type: "test", payload: null } } }), false);
+let iframeStartAccessorCalled = false;
+const accessorStartPayload = { ...visualTestCommand.payload };
+Object.defineProperty(accessorStartPayload, "purpose", { enumerable: true, get() { iframeStartAccessorCalled = true; return "visual_test"; } });
+assert.equal(isIframeMessage({ ...visualTestMessage, payload: { command: { ...visualTestCommand, payload: accessorStartPayload } } }), false);
+assert.equal(iframeStartAccessorCalled, false, "iframe validation must not invoke Start payload accessors");
 
 const event = {
   schema: "aerobeat/game_event",
