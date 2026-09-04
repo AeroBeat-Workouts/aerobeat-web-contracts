@@ -30,10 +30,10 @@ export function isFlowObstacleGeometry(value) {
   return value.schema === "aerobeat/flow_obstacle_geometry" &&
     value.version === 1 &&
     value.coordinateSpace === "beatsaber_lane_layer" &&
-    Number.isInteger(value.x) && value.x >= 0 && value.x <= 3 &&
-    Number.isInteger(value.y) && value.y >= 0 && value.y <= 2 &&
-    Number.isInteger(value.width) && value.width >= 1 && value.width <= 4 &&
-    Number.isInteger(value.height) && value.height >= 1 && value.height <= 5 &&
+    typeof value.x === "number" && Number.isInteger(value.x) && value.x >= 0 && value.x <= 3 &&
+    typeof value.y === "number" && Number.isInteger(value.y) && value.y >= 0 && value.y <= 2 &&
+    typeof value.width === "number" && Number.isInteger(value.width) && value.width >= 1 && value.width <= 4 &&
+    typeof value.height === "number" && Number.isInteger(value.height) && value.height >= 1 && value.height <= 5 &&
     value.x + value.width <= 4 &&
     value.y + value.height <= 5;
 }
