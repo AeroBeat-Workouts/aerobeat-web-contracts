@@ -4,7 +4,7 @@ import { hasExactKeys, isNonEmptyString, isOneOf } from "./contract-guards.js";
 import { conversionRecipeIds, rulesetIds } from "./gameplay-contracts.js";
 
 /**
- * @typedef {"no_squats" | "no_weaves" | "any_punch" | "crossed_guard" | "cross_body"} AeroMapModifierId
+ * @typedef {"no_squats" | "no_weaves" | "any_punch" | "crossed_guard" | "cross_body" | "no_obstacles" | "obstacle_visual_only"} AeroMapModifierId
  */
 
 /**
@@ -58,7 +58,9 @@ export const mapModifierIds = Object.freeze([
   "no_weaves",
   "any_punch",
   "crossed_guard",
-  "cross_body"
+  "cross_body",
+  "no_obstacles",
+  "obstacle_visual_only"
 ]);
 
 /**

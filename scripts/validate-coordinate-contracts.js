@@ -12,6 +12,9 @@ import {
   cameraPreviewToGameplayCamera,
   gameplayCameraToAthlete,
   gameplayRowToAthleteRow,
+  deriveFlowObstacleGridMask,
+  isFlowObstacleGeometry,
+  isFlowObstacleGridMask,
   isAeroGridDescriptor,
   isBodyGridAnchorSnapshot,
   isBodyGridCellEntry,
@@ -180,5 +183,38 @@ assert.equal(calibrationDefaults.cooldownDurationMs, 4000);
 assert.equal(calibrationDefaults.trackingLossPauseMs, 500);
 assert.equal(calibrationDefaults.wristElbowVerticalRatio, 0.35);
 assert.equal(calibrationDefaults.minimumElbowAngleDeg, 130);
+
+const crouchWall = {
+  schema: "aerobeat/flow_obstacle_geometry",
+  version: 1,
+  coordinateSpace: "beatsaber_lane_layer",
+  x: 1,
+  y: 2,
+  width: 1,
+  height: 3
+};
+assert.equal(isFlowObstacleGeometry(crouchWall), true);
+assert.deepEqual(deriveFlowObstacleGridMask(crouchWall), [1]);
+assert.equal(isFlowObstacleGridMask([1], crouchWall), true);
+assert.equal(isFlowObstacleGridMask([1, 5, 9], crouchWall), false, "bounded mask cannot replace continuous geometry");
+const fullHeightWall = { ...crouchWall, y: 0, height: 5 };
+assert.deepEqual(deriveFlowObstacleGridMask(fullHeightWall), [1, 5, 9]);
+for (const invalid of [
+  { ...crouchWall, x: -1 },
+  { ...crouchWall, y: 3 },
+  { ...crouchWall, width: 4 },
+  { ...crouchWall, height: 4 },
+  { ...crouchWall, x: 1.5 },
+  { ...crouchWall, cells: [1] }
+]) assert.equal(isFlowObstacleGeometry(invalid), false);
+let geometryAccessorCalled = false;
+const accessorGeometry = { ...crouchWall };
+Object.defineProperty(accessorGeometry, "x", { enumerable: true, get() { geometryAccessorCalled = true; return 1; } });
+assert.equal(isFlowObstacleGeometry(accessorGeometry), false);
+assert.equal(geometryAccessorCalled, false);
+const accessorMask = [];
+Object.defineProperty(accessorMask, "0", { enumerable: true, get() { throw new Error("must not run"); } });
+accessorMask.length = 1;
+assert.equal(isFlowObstacleGridMask(accessorMask, crouchWall), false);
 
 console.log("Coordinate and calibrated-grid contract validation passed.");

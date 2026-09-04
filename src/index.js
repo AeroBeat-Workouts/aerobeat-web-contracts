@@ -11,6 +11,7 @@ export * from "./body-grid-contracts.js";
 export * from "./input-shapes.js";
 export * from "./session-contracts.js";
 export * from "./gameplay-contracts.js";
+export * from "./flow-obstacle-contracts.js";
 export * from "./content-shapes.js";
 export * from "./content-contracts.js";
 export * from "./beatsaver-contracts.js";

@@ -32,6 +32,8 @@ import {
   isGameplaySessionStartRequest,
   gameplaySessionPurposes,
   isMediaLeaseSnapshot,
+  isObstacleOutcome,
+  obstacleResults,
   isPersistenceHandle,
   isPrototypeTuningIdentity,
   isThemeDescriptor,
@@ -53,7 +55,8 @@ assert.equal(serviceIds.bodyGrid, "aero.input.body-grid");
 assert.equal(serviceIds.beatSaverVendor, "aero.vendor.beatsaver");
 assert.equal(serviceIds.contentAuthoring, "aero.content.authoring");
 assert.equal(eventNames.contentImportChanged, "aero:content:import-changed");
-assert.deepEqual(rulesetIds, ["flow_grid_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1"]);
+assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_grid_v2", "boxing_semantic_track_v1", "boxing_spatial_grid_v1"]);
+assert.deepEqual(obstacleResults, ["contact", "avoided", "unevaluated_tracking"]);
 assert.deepEqual(conversionRecipeIds, ["row_family_balanced_height_v1", "cut_family_source_height_v1"]);
 assert.equal(mapModifierIds.includes("crossed_guard"), true);
 assert.equal(boxingActions.includes("crossed_guard"), true);
@@ -239,6 +242,31 @@ assert.equal(isGameplayJudgementV2({ ...committedJudgement, diagnostics: accesso
 assert.equal(diagnosticAccessorCalled, false, "version 2 judgement diagnostics must not invoke accessors");
 const extraDiagnosticProperty = ["no_input"]; extraDiagnosticProperty.extra = true;
 assert.equal(isGameplayJudgementV2({ ...committedJudgement, diagnostics: extraDiagnosticProperty }), false);
+
+const obstacleOutcome = {
+  schema: "aerobeat/obstacle_outcome",
+  version: 1,
+  eventId: "flow-obstacle-1",
+  rulesetId: "flow_grid_v2",
+  result: "contact",
+  intervalStartTimestampMs: 37039.99938964844,
+  intervalEndTimestampMs: 37064.99938964844,
+  committedTimelinePositionMs: 37065,
+  firstContactTimelinePositionMs: 37040,
+  contactDurationMs: 25,
+  contactEpisodeId: "session-1:obstacle-episode:1",
+  evidenceFrameId: "frame-2",
+  calibrationId: "cal-1",
+  consequenceApplied: true
+};
+assert.equal(isObstacleOutcome(obstacleOutcome), true);
+assert.equal(isObstacleOutcome({ ...obstacleOutcome, rulesetId: "flow_grid_v1" }), false);
+assert.equal(isObstacleOutcome({ ...obstacleOutcome, intervalEndTimestampMs: obstacleOutcome.intervalStartTimestampMs }), false);
+assert.equal(isObstacleOutcome({ ...obstacleOutcome, contactDurationMs: 26 }), false);
+assert.equal(isObstacleOutcome({ ...obstacleOutcome, noseX: 0.5 }), false);
+const avoidedObstacle = { ...obstacleOutcome, result: "avoided", firstContactTimelinePositionMs: null, contactDurationMs: 0, contactEpisodeId: null, evidenceFrameId: null, calibrationId: null, consequenceApplied: false };
+assert.equal(isObstacleOutcome(avoidedObstacle), true);
+assert.equal(isObstacleOutcome({ ...avoidedObstacle, consequenceApplied: true }), false);
 
 assert.equal(isCountdownSnapshot({
   schema: "aerobeat/countdown_snapshot",

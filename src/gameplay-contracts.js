@@ -10,7 +10,7 @@ import {
 import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contracts.js";
 
 /**
- * @typedef {"flow_grid_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1"} AeroRulesetId
+ * @typedef {"flow_grid_v1" | "flow_grid_v2" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1"} AeroRulesetId
  */
 
 /**
@@ -75,6 +75,66 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 
 /**
+ * @typedef {"contact" | "avoided" | "unevaluated_tracking"} AeroObstacleResult
+ */
+
+/**
+ * Internal deterministic Flow obstacle outcome. Public assembly projections
+ * must expose aggregate counts only and omit evidence/calibration identities.
+ *
+ * @typedef {Object} AeroObstacleOutcome
+ * @property {"aerobeat/obstacle_outcome"} schema Schema ID.
+ * @property {1} version Schema version.
+ * @property {string} eventId Authored obstacle identity.
+ * @property {"flow_grid_v2"} rulesetId Source-geometry Flow ruleset.
+ * @property {AeroObstacleResult} result Evaluation result.
+ * @property {number} intervalStartTimestampMs Exact authored interval start.
+ * @property {number} intervalEndTimestampMs Exact authored interval end.
+ * @property {number} committedTimelinePositionMs Song time at commitment.
+ * @property {number | null} firstContactTimelinePositionMs First proven contact.
+ * @property {number} contactDurationMs Proven clipped-union contact duration.
+ * @property {string | null} contactEpisodeId Deterministic entry episode.
+ * @property {string | null} evidenceFrameId Internal measured frame identity.
+ * @property {string | null} calibrationId Internal calibration generation.
+ * @property {boolean} consequenceApplied Whether this obstacle won entry ordering.
+ */
+
+/**
+ * @typedef {Object} AeroGameplayCoordinatorSnapshotV2
+ * @property {"aerobeat/gameplay_coordinator_snapshot"} schema Schema ID.
+ * @property {2} version Schema version.
+ * @property {readonly AeroObstacleOutcome[]} obstacleOutcomes Bounded run-local outcomes.
+ */
+
+/** @type {readonly AeroObstacleResult[]} */
+export const obstacleResults = Object.freeze(["contact", "avoided", "unevaluated_tracking"]);
+
+/**
+ * @param {unknown} value
+ * @returns {value is AeroObstacleOutcome}
+ */
+export function isObstacleOutcome(value) {
+  const fields = ["schema", "version", "eventId", "rulesetId", "result", "intervalStartTimestampMs", "intervalEndTimestampMs", "committedTimelinePositionMs", "firstContactTimelinePositionMs", "contactDurationMs", "contactEpisodeId", "evidenceFrameId", "calibrationId", "consequenceApplied"];
+  if (!hasExactKeys(value, fields) || value.schema !== "aerobeat/obstacle_outcome" || value.version !== 1 ||
+      !isBoundedNonEmptyString(value.eventId, 512) || value.rulesetId !== "flow_grid_v2" || !isOneOf(value.result, obstacleResults) ||
+      !isNonNegativeFiniteNumber(value.intervalStartTimestampMs) || !isNonNegativeFiniteNumber(value.intervalEndTimestampMs) ||
+      value.intervalEndTimestampMs <= value.intervalStartTimestampMs || value.intervalEndTimestampMs > 86_400_000 ||
+      !isNonNegativeFiniteNumber(value.committedTimelinePositionMs) || value.committedTimelinePositionMs > 86_400_000 ||
+      !isNonNegativeFiniteNumber(value.contactDurationMs) || value.contactDurationMs > value.intervalEndTimestampMs - value.intervalStartTimestampMs ||
+      !(value.firstContactTimelinePositionMs === null || isNonNegativeFiniteNumber(value.firstContactTimelinePositionMs)) ||
+      !(value.contactEpisodeId === null || isBoundedNonEmptyString(value.contactEpisodeId, 512)) ||
+      !(value.evidenceFrameId === null || isBoundedNonEmptyString(value.evidenceFrameId, 512)) ||
+      !(value.calibrationId === null || isBoundedNonEmptyString(value.calibrationId, 512)) ||
+      typeof value.consequenceApplied !== "boolean") {
+    return false;
+  }
+  if (value.result === "contact") {
+    return value.firstContactTimelinePositionMs !== null && value.contactDurationMs >= 0 && value.contactEpisodeId !== null;
+  }
+  return value.firstContactTimelinePositionMs === null && value.contactDurationMs === 0 && value.contactEpisodeId === null && value.consequenceApplied === false;
+}
+
+/**
  * @typedef {Object} AeroPrototypeTuningIdentityBase
  * @property {"aerobeat/prototype_tuning_identity"} schema Schema ID.
  * @property {1} version Schema version.
@@ -94,6 +154,7 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
 /** @type {readonly AeroRulesetId[]} */
 export const rulesetIds = Object.freeze([
   "flow_grid_v1",
+  "flow_grid_v2",
   "boxing_semantic_track_v1",
   "boxing_spatial_grid_v1"
 ]);
