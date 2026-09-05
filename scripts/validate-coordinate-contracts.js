@@ -12,9 +12,10 @@ import {
   cameraPreviewToGameplayCamera,
   gameplayCameraToAthlete,
   gameplayRowToAthleteRow,
-  deriveFlowObstacleGridMask,
-  isFlowObstacleGeometry,
-  isFlowObstacleGridMask,
+  deriveObstacleGridMask,
+  isObstacleGameplayGeometry,
+  isObstacleGridMask,
+  isObstacleSourceGeometry,
   isAeroGridDescriptor,
   isBodyGridAnchorSnapshot,
   isBodyGridCellEntry,
@@ -184,37 +185,36 @@ assert.equal(calibrationDefaults.trackingLossPauseMs, 500);
 assert.equal(calibrationDefaults.wristElbowVerticalRatio, 0.35);
 assert.equal(calibrationDefaults.minimumElbowAngleDeg, 130);
 
-const crouchWall = {
-  schema: "aerobeat/flow_obstacle_geometry",
-  version: 1,
-  coordinateSpace: "beatsaber_lane_layer",
-  x: 1,
-  y: 2,
-  width: 1,
-  height: 3
+const sourceCrouchWall = {
+  schema: "aerobeat/obstacle_source_geometry", version: 1,
+  coordinateSpace: "beatsaber_v2_legacy_obstacle", kind: "v2_type_1",
+  x: 1, y: 2, width: 1, height: 3
 };
-assert.equal(isFlowObstacleGeometry(crouchWall), true);
-assert.deepEqual(deriveFlowObstacleGridMask(crouchWall), [1]);
-assert.equal(isFlowObstacleGridMask([1], crouchWall), true);
-assert.equal(isFlowObstacleGridMask([1, 5, 9], crouchWall), false, "bounded mask cannot replace continuous geometry");
-const fullHeightWall = { ...crouchWall, y: 0, height: 5 };
-assert.deepEqual(deriveFlowObstacleGridMask(fullHeightWall), [1, 5, 9]);
+const crouchWall = {
+  schema: "aerobeat/obstacle_gameplay_geometry", version: 1,
+  coordinateSpace: "aerobeat_top_left_grid", x: 1, y: 0, width: 1, height: 3
+};
+assert.equal(isObstacleSourceGeometry(sourceCrouchWall), true);
+assert.equal(isObstacleGameplayGeometry(crouchWall), true);
+assert.deepEqual(deriveObstacleGridMask(crouchWall), [1, 5, 9]);
+assert.equal(isObstacleGridMask([1, 5, 9], crouchWall), true);
+assert.equal(isObstacleGridMask([1], crouchWall), false, "top-only stale masks must reject");
+const partialWall = { ...crouchWall, x: 0, y: 1, width: 2, height: 2 };
+assert.deepEqual(deriveObstacleGridMask(partialWall), [4, 5, 8, 9]);
 for (const invalid of [
-  { ...crouchWall, x: -1 },
-  { ...crouchWall, y: 3 },
-  { ...crouchWall, width: 4 },
-  { ...crouchWall, height: 4 },
-  { ...crouchWall, x: 1.5 },
-  { ...crouchWall, cells: [1] }
-]) assert.equal(isFlowObstacleGeometry(invalid), false);
+  { ...crouchWall, x: -1 }, { ...crouchWall, y: 3 }, { ...crouchWall, width: 4 },
+  { ...crouchWall, height: 4 }, { ...crouchWall, x: 1.5 }, { ...crouchWall, cells: [1] },
+  { ...crouchWall, coordinateSpace: "beatsaber_lane_layer" }
+]) assert.equal(isObstacleGameplayGeometry(invalid), false);
+assert.equal(isObstacleSourceGeometry({ ...sourceCrouchWall, coordinateSpace: "beatsaber_v3_obstacle_rect" }), false, "source format/kind conflicts reject");
 let geometryAccessorCalled = false;
 const accessorGeometry = { ...crouchWall };
 Object.defineProperty(accessorGeometry, "x", { enumerable: true, get() { geometryAccessorCalled = true; return 1; } });
-assert.equal(isFlowObstacleGeometry(accessorGeometry), false);
+assert.equal(isObstacleGameplayGeometry(accessorGeometry), false);
 assert.equal(geometryAccessorCalled, false);
 const accessorMask = [];
 Object.defineProperty(accessorMask, "0", { enumerable: true, get() { throw new Error("must not run"); } });
 accessorMask.length = 1;
-assert.equal(isFlowObstacleGridMask(accessorMask, crouchWall), false);
+assert.equal(isObstacleGridMask(accessorMask, crouchWall), false);
 
 console.log("Coordinate and calibrated-grid contract validation passed.");

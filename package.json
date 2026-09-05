@@ -19,7 +19,7 @@
     "./input-shapes": "./src/input-shapes.js",
     "./session-contracts": "./src/session-contracts.js",
     "./gameplay-contracts": "./src/gameplay-contracts.js",
-    "./flow-obstacle-contracts": "./src/flow-obstacle-contracts.js",
+    "./obstacle-contracts": "./src/obstacle-contracts.js",
     "./content-shapes": "./src/content-shapes.js",
     "./content-contracts": "./src/content-contracts.js",
     "./beatsaver-contracts": "./src/beatsaver-contracts.js",
