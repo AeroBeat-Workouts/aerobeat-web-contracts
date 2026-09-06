@@ -106,14 +106,14 @@ assert.equal(isBeatSaverVersionRef({
 
 const manifest = {
   schema: "aerobeat/beatmap_source_manifest",
-  version: 1,
+  version: 2,
   sourceProvider: "beatsaver",
   sourceId: "4858",
   sourceVersionHash: "a".repeat(40),
-  beatMapFormat: "v3",
+  infoFormat: "v2",
   metadataPath: "Info.dat",
   entries: [{ path: "Expert.dat", kind: "difficulty", byteLength: 42, hash: sha256 }],
-  difficultyIds: ["Standard/Expert"],
+  difficulties: [{ id: "Standard/Expert", characteristic: "Standard", difficulty: "Expert", path: "Expert.dat", beatMapFormat: "v3", beatMapVersion: "3.3.0", notePalette: null }],
   totalUncompressedBytes: 42,
   archiveHash: sha1
 };

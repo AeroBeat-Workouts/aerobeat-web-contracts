@@ -23,12 +23,15 @@
     "./content-shapes": "./src/content-shapes.js",
     "./content-contracts": "./src/content-contracts.js",
     "./beatsaver-contracts": "./src/beatsaver-contracts.js",
+    "./note-palette-contracts": "./src/note-palette-contracts.js",
+    "./authored-timing": "./src/authored-timing.js",
     "./theme-contracts": "./src/theme-contracts.js",
     "./host-contracts": "./src/host-contracts.js",
     "./iframe-contracts": "./src/iframe-contracts.js"
   },
   "scripts": {
-    "check": "npm run check:jsdoc && npm run check:imports && npm run check:pose-adapter && npm run check:pose-routing && npm run check:coordinates && npm run check:game-contracts && npm run check:iframe && npm run check:components && npm run check:console",
+    "check": "npm run check:jsdoc && npm run check:imports && npm run check:pose-adapter && npm run check:pose-routing && npm run check:coordinates && npm run check:game-contracts && npm run check:palette-timing && npm run check:iframe && npm run check:components && npm run check:console",
+    "check:palette-timing": "node scripts/validate-palette-timing-contracts.js",
     "check:pose-routing": "node scripts/validate-pose-routing-contract.js",
     "check:coordinates": "node scripts/validate-coordinate-contracts.js",
     "check:game-contracts": "node scripts/validate-game-contracts.js",

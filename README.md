@@ -22,6 +22,8 @@ It intentionally does not implement camera access, pose detection, input routing
 - `src/obstacle-contracts.js` owns mode-neutral provider-evidence and canonical `aerobeat_top_left_grid` obstacle geometry, downward occupancy, and exact derived masks; source coordinate spaces are never render/collision authority.
 - `src/content-shapes.js` retains baseline map/chart/package JSDoc; `src/content-contracts.js` adds immutable hash/provenance/variant/modifier/persistence identities.
 - `src/beatsaver-contracts.js` owns normalized browser-facing BeatSaver summary/version, provider-neutral source-manifest and import-job shapes without exposing provider-native objects or raw archives.
+- `src/note-palette-contracts.js` owns canonical opaque sRGB note-palette defaults and strict source/authored/effective/private-appearance validators. Archive provenance is retained only on source/authored integrity records and is excluded from effective runtime and renderer projection shapes.
+- `src/authored-timing.js` owns the validated piecewise authored-beat-to-timeline-ms authority over ordered tempo segments and the 24-hour runtime bound. The current schema accepts only empty stop segments rather than guessing unsupported stop semantics.
 - `src/theme-contracts.js` owns serializable theme tokens and background suggestions.
 - `src/host-contracts.js` owns exact-container capabilities, fullscreen state, asset policy and exact versioned direct-host command/event envelopes.
 - `src/iframe-contracts.js` owns the strict immediate-parent protocol and rejects nested case/separator aliases for raw frames, pixels, screenshots, media streams/tracks, ZIP/archive bytes and audio bytes.

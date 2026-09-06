@@ -7,6 +7,7 @@ import {
   isOneOf
 } from "./contract-guards.js";
 import { isContentHash, isPersistenceHandle } from "./content-contracts.js";
+import { isSourceNotePalette } from "./note-palette-contracts.js";
 
 /**
  * @typedef {Object} AeroBeatSaverMapSummary
@@ -41,16 +42,30 @@ import { isContentHash, isPersistenceHandle } from "./content-contracts.js";
  */
 
 /**
+ * One exact difficulty discovered during provider-neutral source inspection. Info
+ * format remains separate because a legacy v2 Info.dat can select a v3 beatmap.
+ *
+ * @typedef {Object} AeroSourceManifestDifficulty
+ * @property {string} id Stable normalized difficulty ID.
+ * @property {string} characteristic Exact characteristic identity.
+ * @property {string} difficulty Exact difficulty identity.
+ * @property {string} path Normalized relative archive path.
+ * @property {"v2" | "v3" | "v4"} beatMapFormat Referenced difficulty beatmap family.
+ * @property {string} beatMapVersion Exact declared difficulty beatmap version.
+ * @property {import("./note-palette-contracts.js").AeroSourceNotePalette | null} notePalette Sanitized atomic song pair or null.
+ */
+
+/**
  * @typedef {Object} AeroBeatMapSourceManifest
  * @property {"aerobeat/beatmap_source_manifest"} schema Provider-neutral schema ID.
- * @property {1} version Schema version.
+ * @property {2} version Schema version. Version 2 separates Info and beatmap formats and binds per-difficulty note palettes.
  * @property {string} sourceProvider Source provider ID.
  * @property {string} sourceId Source map identity.
  * @property {string} sourceVersionHash Selected source version.
- * @property {"v2" | "v3" | "v4"} beatMapFormat Normalized Beat Saber format family.
+ * @property {"v2" | "v4"} infoFormat Normalized Info.dat family; Info has no v3 family.
  * @property {string} metadataPath Normalized archive metadata path.
  * @property {readonly AeroSourceManifestEntry[]} entries Inspected entry metadata without raw bytes.
- * @property {readonly string[]} difficultyIds Available normalized difficulty IDs.
+ * @property {readonly AeroSourceManifestDifficulty[]} difficulties Available normalized difficulty records.
  * @property {number} totalUncompressedBytes Total inspected uncompressed bytes.
  * @property {import("./content-contracts.js").AeroContentHash} archiveHash Downloaded/imported archive hash.
  */
@@ -130,35 +145,61 @@ export function isBeatMapSourceManifest(value) {
     "sourceProvider",
     "sourceId",
     "sourceVersionHash",
-    "beatMapFormat",
+    "infoFormat",
     "metadataPath",
     "entries",
-    "difficultyIds",
+    "difficulties",
     "totalUncompressedBytes",
     "archiveHash"
   ];
-  if (!hasExactKeys(value, exactKeys) || !Array.isArray(value.entries)) {
+  if (!hasExactKeys(value, exactKeys) || !isStrictArray(value.entries) || !isStrictArray(value.difficulties) || value.difficulties.length === 0) {
     return false;
   }
   const entryKinds = /** @type {const} */ (["metadata", "difficulty", "audio", "image", "other"]);
   const entriesValid = value.entries.every((entry) => hasExactKeys(entry, ["path", "kind", "byteLength", "hash"]) &&
-    isNonEmptyString(entry.path) &&
-    !entry.path.startsWith("/") &&
-    !entry.path.split("/").includes("..") &&
+    isNormalizedArchivePath(entry.path) &&
     isOneOf(entry.kind, entryKinds) &&
     isNonNegativeFiniteNumber(entry.byteLength) &&
     isContentHash(entry.hash));
+  const difficultyIds = new Set();
+  const difficultiesValid = value.difficulties.every((difficulty) => {
+    if (!hasExactKeys(difficulty, ["id", "characteristic", "difficulty", "path", "beatMapFormat", "beatMapVersion", "notePalette"]) ||
+        !isNonEmptyString(difficulty.id) || difficultyIds.has(difficulty.id) ||
+        !isNonEmptyString(difficulty.characteristic) || !isNonEmptyString(difficulty.difficulty) ||
+        !isNormalizedArchivePath(difficulty.path) || typeof difficulty.beatMapVersion !== "string" || !/^\d+\.\d+\.\d+$/u.test(difficulty.beatMapVersion) ||
+        (difficulty.notePalette !== null && !isSourceNotePalette(difficulty.notePalette))) return false;
+    difficultyIds.add(difficulty.id);
+    return value.infoFormat === "v2"
+      ? difficulty.beatMapFormat === "v2" || difficulty.beatMapFormat === "v3"
+      : difficulty.beatMapFormat === "v4";
+  });
   return value.schema === "aerobeat/beatmap_source_manifest" &&
-    value.version === 1 &&
+    value.version === 2 &&
     isNonEmptyString(value.sourceProvider) &&
     isNonEmptyString(value.sourceId) &&
     isNonEmptyString(value.sourceVersionHash) &&
-    (value.beatMapFormat === "v2" || value.beatMapFormat === "v3" || value.beatMapFormat === "v4") &&
-    isNonEmptyString(value.metadataPath) &&
-    entriesValid &&
-    Array.isArray(value.difficultyIds) && value.difficultyIds.every(isNonEmptyString) &&
-    isNonNegativeFiniteNumber(value.totalUncompressedBytes) &&
+    (value.infoFormat === "v2" || value.infoFormat === "v4") &&
+    isNormalizedArchivePath(value.metadataPath) &&
+    entriesValid && difficultiesValid &&
+    isNonNegativeFiniteNumber(value.totalUncompressedBytes) && value.totalUncompressedBytes <= 512 * 1024 * 1024 &&
     isContentHash(value.archiveHash);
+}
+
+/** @param {unknown} value */
+function isNormalizedArchivePath(value) {
+  return isNonEmptyString(value) && !value.startsWith("/") && !value.split("/").includes("..") && !value.includes("\\");
+}
+
+/** @param {unknown} value @returns {value is readonly unknown[]} */
+function isStrictArray(value) {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) return false;
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== value.length + 1 || !keys.includes("length")) return false;
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) return false;
+  }
+  return true;
 }
 
 /**

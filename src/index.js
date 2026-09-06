@@ -15,6 +15,8 @@ export * from "./obstacle-contracts.js";
 export * from "./content-shapes.js";
 export * from "./content-contracts.js";
 export * from "./beatsaver-contracts.js";
+export * from "./note-palette-contracts.js";
+export * from "./authored-timing.js";
 export * from "./theme-contracts.js";
 export * from "./host-contracts.js";
 export * from "./iframe-contracts.js";
