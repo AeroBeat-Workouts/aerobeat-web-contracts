@@ -166,6 +166,22 @@ assert.ok(Math.abs(mapBeat(21) - 10_458.333333333332) < 1e-9, "final segment ext
 assert.equal(authoredBeatToTimelineMs({ ...timing, anchorMs: 0 }, 18), 8_666.666666666666);
 assert.equal(mapBeat(-0), 125);
 
+const stoppedTiming = {
+  ...timing,
+  stopSegments: [
+    { startBeat: 0, durationMs: 100 },
+    { startBeat: 16, durationMs: 250 },
+    { startBeat: 18, durationMs: 50 }
+  ]
+};
+assert.equal(isAuthoredSongTiming(stoppedTiming), true);
+const mapStoppedBeat = createAuthoredBeatToTimelineMs(stoppedTiming);
+assert.equal(mapStoppedBeat(0), 225, "a stop at beat zero applies at the exact beat-zero boundary");
+assert.ok(Math.abs(mapStoppedBeat(15.999) - (125 + 15.999 * 500 + 100)) < 1e-9, "a future stop does not apply before its boundary");
+assert.equal(mapStoppedBeat(16), 8_475, "a stop applies in full when startBeat equals the target beat");
+assert.ok(Math.abs(mapStoppedBeat(17) - (8_125 + 1_000 / 3 + 350)) < 1e-9, "tempo integration and prior stops compose cumulatively");
+assert.ok(Math.abs(mapStoppedBeat(18) - (8_791.666666666666 + 400)) < 1e-9, "multiple ordered stops accumulate across a tempo segment");
+
 const mutableTiming = {
   anchorMs: 0,
   tempoSegments: [{ startBeat: 0, bpm: 120 }],
@@ -176,7 +192,16 @@ const snapshottedMapper = createAuthoredBeatToTimelineMs(mutableTiming);
 mutableTiming.anchorMs = 500;
 mutableTiming.tempoSegments[0].bpm = 60;
 assert.equal(snapshottedMapper(4), 2_000, "validated mapper snapshots timing against later mutation");
+const mutableStoppedTiming = { ...mutableTiming, anchorMs: 0, tempoSegments: [{ startBeat: 0, bpm: 120 }], stopSegments: [{ startBeat: 2, durationMs: 250 }] };
+const snapshottedStopMapper = createAuthoredBeatToTimelineMs(mutableStoppedTiming);
+mutableStoppedTiming.stopSegments[0].durationMs = 999;
+mutableStoppedTiming.stopSegments.push({ startBeat: 3, durationMs: 999 });
+assert.equal(snapshottedStopMapper(4), 2_250, "validated mapper snapshots stop timing against later mutation");
 assert.equal(authoredBeatToTimelineMs({ ...mutableTiming, anchorMs: maximumAuthoredTimelineMs }, 0), maximumAuthoredTimelineMs);
+const exactStopBoundaryTiming = { ...mutableTiming, anchorMs: maximumAuthoredTimelineMs - 100, stopSegments: [{ startBeat: 0, durationMs: 100 }] };
+assert.equal(isAuthoredSongTiming(exactStopBoundaryTiming), true);
+assert.equal(authoredBeatToTimelineMs(exactStopBoundaryTiming, 0), maximumAuthoredTimelineMs, "anchor plus an exact-boundary stop may equal 24 hours");
+assert.throws(() => authoredBeatToTimelineMs(exactStopBoundaryTiming, 0.001), /24-hour/u);
 assert.throws(() => authoredBeatToTimelineMs({ ...mutableTiming, anchorMs: maximumAuthoredTimelineMs }, 0.001), /24-hour/u);
 
 const invalidTimings = [
@@ -193,7 +218,16 @@ const invalidTimings = [
   { ...timing, tempoSegments: [{ startBeat: 0, bpm: Number.POSITIVE_INFINITY }] },
   { ...timing, tempoSegments: [{ startBeat: 0, bpm: "120" }] },
   { ...timing, tempoSegments: [{ startBeat: 0, bpm: 1 }, { startBeat: 1_441, bpm: 120 }] },
-  { ...timing, stopSegments: [{ startBeat: 4, durationMs: 250 }] },
+  { ...timing, stopSegments: [{ startBeat: -1, durationMs: 250 }] },
+  { ...timing, stopSegments: [{ startBeat: 4, durationMs: 0 }] },
+  { ...timing, stopSegments: [{ startBeat: 4, durationMs: -1 }] },
+  { ...timing, stopSegments: [{ startBeat: 4, durationMs: Number.NaN }] },
+  { ...timing, stopSegments: [{ startBeat: 4, durationMs: Number.POSITIVE_INFINITY }] },
+  { ...timing, stopSegments: [{ startBeat: 4, durationMs: "250" }] },
+  { ...timing, stopSegments: [{ startBeat: 4, durationMs: 250 }, { startBeat: 4, durationMs: 100 }] },
+  { ...timing, stopSegments: [{ startBeat: 5, durationMs: 250 }, { startBeat: 4, durationMs: 100 }] },
+  { ...timing, stopSegments: [{ startBeat: 4, durationMs: 250, ignored: true }] },
+  { ...timing, stopSegments: [{ startBeat: 0, durationMs: maximumAuthoredTimelineMs }, { startBeat: 1, durationMs: 1 }] },
   { ...timing, timeSignatureSegments: [] },
   { ...timing, timeSignatureSegments: [{ startBeat: 1, numerator: 4, denominator: 4 }] },
   { ...timing, timeSignatureSegments: [{ startBeat: 0, numerator: 4.5, denominator: 4 }] },
@@ -207,6 +241,8 @@ const extraTempos = [{ startBeat: 0, bpm: 120 }];
 extraTempos.extra = true;
 assert.equal(isAuthoredSongTiming({ ...timing, tempoSegments: extraTempos }), false);
 assert.equal(isAuthoredSongTiming({ ...timing, tempoSegments: Object.assign([{ startBeat: 0, bpm: 120 }], { [Symbol("extra")]: true }) }), false);
+assert.equal(isAuthoredSongTiming({ ...timing, stopSegments: Array(1) }), false);
+assert.equal(isAuthoredSongTiming({ ...timing, stopSegments: Object.assign([{ startBeat: 1, durationMs: 100 }], { extra: true }) }), false);
 class TimingRecord { constructor() { Object.assign(this, timing); } }
 assert.equal(isAuthoredSongTiming(new TimingRecord()), false);
 assert.equal(isAuthoredSongTiming(Object.assign(Object.create(null), timing)), false);
@@ -220,6 +256,11 @@ const accessorTempo = { startBeat: 0, bpm: 120 };
 Object.defineProperty(accessorTempo, "bpm", { enumerable: true, get() { tempoAccessorCalled = true; return 120; } });
 assert.equal(isAuthoredSongTiming({ ...timing, tempoSegments: [accessorTempo] }), false);
 assert.equal(tempoAccessorCalled, false, "tempo validators never execute accessors");
+let stopAccessorCalled = false;
+const accessorStop = { startBeat: 2, durationMs: 100 };
+Object.defineProperty(accessorStop, "durationMs", { enumerable: true, get() { stopAccessorCalled = true; return 100; } });
+assert.equal(isAuthoredSongTiming({ ...timing, stopSegments: [accessorStop] }), false);
+assert.equal(stopAccessorCalled, false, "stop validators never execute accessors");
 
 for (const beat of [-1, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
   assert.throws(() => mapBeat(beat), /Authored beat/u);

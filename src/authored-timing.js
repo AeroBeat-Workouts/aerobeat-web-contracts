@@ -2,7 +2,7 @@
 
 /** Maximum accepted authored/runtime timeline: exactly 24 hours. */
 export const maximumAuthoredTimelineMs = 24 * 60 * 60 * 1_000;
-/** Defensive maximum number of tempo or time-signature segments. */
+/** Defensive maximum number of tempo, stop, or time-signature segments. */
 export const maximumTimingSegments = 4_096;
 
 /**
@@ -19,14 +19,19 @@ export const maximumTimingSegments = 4_096;
  */
 
 /**
- * Current authored song timing shape. Non-empty stop segments are deliberately
- * unsupported: no accepted stop record semantics exist in the current package
- * schema, so guessing a shape or silently ignoring one would corrupt time.
+ * @typedef {Object} AeroStopSegment
+ * @property {number} startBeat Non-negative authored beat where the stop is applied.
+ * @property {number} durationMs Finite positive stop duration in timeline milliseconds.
+ */
+
+/**
+ * Current authored song timing shape. A stop contributes its complete duration
+ * when its `startBeat` is less than or exactly equal to the target beat.
  *
  * @typedef {Object} AeroAuthoredSongTiming
  * @property {number} anchorMs Non-negative timeline anchor, bounded to 24 hours.
  * @property {readonly AeroTempoSegment[]} tempoSegments Strictly ordered segments beginning at beat zero.
- * @property {readonly never[]} stopSegments Must be empty until a stop schema is explicitly versioned.
+ * @property {readonly AeroStopSegment[]} stopSegments Strictly ordered, duplicate-free stop segments.
  * @property {readonly AeroTimeSignatureSegment[]} timeSignatureSegments Strictly ordered segments beginning at beat zero.
  */
 
@@ -38,22 +43,26 @@ export function isAuthoredSongTiming(value) {
   if (!hasExactDataObject(value, ["anchorMs", "tempoSegments", "stopSegments", "timeSignatureSegments"]) ||
       !isBoundedTimelineNumber(value.anchorMs) ||
       !isExactArray(value.tempoSegments, 1, maximumTimingSegments) ||
-      !isExactArray(value.stopSegments, 0, 0) ||
+      !isExactArray(value.stopSegments, 0, maximumTimingSegments) ||
       !isExactArray(value.timeSignatureSegments, 1, maximumTimingSegments)) return false;
 
   let previousBeat = -1;
-  let elapsedMs = Number(value.anchorMs);
   for (let index = 0; index < value.tempoSegments.length; index += 1) {
     const segment = value.tempoSegments[index];
     if (!hasExactDataObject(segment, ["startBeat", "bpm"]) ||
         !isBoundedBeat(segment.startBeat) || typeof segment.bpm !== "number" || !Number.isFinite(segment.bpm) || segment.bpm <= 0 ||
         (index === 0 ? segment.startBeat !== 0 : segment.startBeat <= previousBeat)) return false;
-    if (index > 0) {
-      const prior = value.tempoSegments[index - 1];
-      if (prior === undefined) return false;
-      elapsedMs += (Number(segment.startBeat) - Number(prior.startBeat)) * 60_000 / Number(prior.bpm);
-      if (!Number.isFinite(elapsedMs) || elapsedMs > maximumAuthoredTimelineMs) return false;
-    }
+    previousBeat = Number(segment.startBeat);
+  }
+
+  previousBeat = -1;
+  let cumulativeStopMs = 0;
+  for (const segment of value.stopSegments) {
+    if (!hasExactDataObject(segment, ["startBeat", "durationMs"]) ||
+        !isBoundedBeat(segment.startBeat) || typeof segment.durationMs !== "number" || !Number.isFinite(segment.durationMs) ||
+        segment.durationMs <= 0 || segment.durationMs > maximumAuthoredTimelineMs || segment.startBeat <= previousBeat) return false;
+    cumulativeStopMs += Number(segment.durationMs);
+    if (!Number.isFinite(cumulativeStopMs) || cumulativeStopMs > maximumAuthoredTimelineMs) return false;
     previousBeat = Number(segment.startBeat);
   }
 
@@ -65,6 +74,12 @@ export function isAuthoredSongTiming(value) {
         !Number.isSafeInteger(segment.denominator) || Number(segment.denominator) <= 0 ||
         (index === 0 ? segment.startBeat !== 0 : segment.startBeat <= previousBeat)) return false;
     previousBeat = Number(segment.startBeat);
+  }
+
+  for (const checkpoints of [value.tempoSegments, value.stopSegments, value.timeSignatureSegments]) {
+    for (const checkpoint of checkpoints) {
+      if (timelineAtBeat(value.anchorMs, value.tempoSegments, value.stopSegments, Number(checkpoint.startBeat)) > maximumAuthoredTimelineMs) return false;
+    }
   }
   return true;
 }
@@ -79,21 +94,13 @@ export function isAuthoredSongTiming(value) {
 export function createAuthoredBeatToTimelineMs(timing) {
   if (!isAuthoredSongTiming(timing)) throw new TypeError("Invalid authored song timing");
   const anchorMs = normalizeZero(timing.anchorMs);
-  const segments = timing.tempoSegments.map((segment) => Object.freeze({ startBeat: normalizeZero(segment.startBeat), bpm: segment.bpm }));
+  const tempoSegments = timing.tempoSegments.map((segment) => Object.freeze({ startBeat: normalizeZero(segment.startBeat), bpm: segment.bpm }));
+  const stopSegments = timing.stopSegments.map((segment) => Object.freeze({ startBeat: normalizeZero(segment.startBeat), durationMs: segment.durationMs }));
 
   return Object.freeze((beat) => {
     if (!isBoundedBeat(beat)) throw new RangeError("Authored beat must be finite, non-negative, and safely bounded");
-    const targetBeat = normalizeZero(beat);
-    let timelineMs = anchorMs;
-    for (let index = 0; index < segments.length; index += 1) {
-      const segment = segments[index];
-      const next = segments[index + 1];
-      if (segment === undefined || targetBeat <= segment.startBeat) break;
-      const endBeat = next === undefined ? targetBeat : Math.min(targetBeat, next.startBeat);
-      timelineMs += (endBeat - segment.startBeat) * 60_000 / segment.bpm;
-      if (!Number.isFinite(timelineMs) || timelineMs > maximumAuthoredTimelineMs) throw new RangeError("Authored beat exceeds the 24-hour timeline");
-      if (next === undefined || targetBeat <= next.startBeat) break;
-    }
+    const timelineMs = timelineAtBeat(anchorMs, tempoSegments, stopSegments, normalizeZero(beat));
+    if (!Number.isFinite(timelineMs) || timelineMs > maximumAuthoredTimelineMs) throw new RangeError("Authored beat exceeds the 24-hour timeline");
     return normalizeZero(timelineMs);
   });
 }
@@ -108,6 +115,29 @@ export function createAuthoredBeatToTimelineMs(timing) {
  */
 export function authoredBeatToTimelineMs(timing, beat) {
   return createAuthoredBeatToTimelineMs(timing)(beat);
+}
+
+/**
+ * @param {number} anchorMs
+ * @param {readonly AeroTempoSegment[]} tempoSegments
+ * @param {readonly AeroStopSegment[]} stopSegments
+ * @param {number} targetBeat
+ */
+function timelineAtBeat(anchorMs, tempoSegments, stopSegments, targetBeat) {
+  let timelineMs = anchorMs;
+  for (let index = 0; index < tempoSegments.length; index += 1) {
+    const segment = tempoSegments[index];
+    const next = tempoSegments[index + 1];
+    if (segment === undefined || targetBeat <= segment.startBeat) break;
+    const endBeat = next === undefined ? targetBeat : Math.min(targetBeat, next.startBeat);
+    timelineMs += (endBeat - segment.startBeat) * 60_000 / segment.bpm;
+    if (next === undefined || targetBeat <= next.startBeat) break;
+  }
+  for (const stop of stopSegments) {
+    if (stop.startBeat > targetBeat) break;
+    timelineMs += stop.durationMs;
+  }
+  return timelineMs;
 }
 
 /** @param {unknown} value */

@@ -57,7 +57,8 @@ export const defaultNotePalette = Object.freeze({
 /**
  * Immutable authored-package palette. `paletteHash` binds the canonical palette
  * and private provenance into package integrity; it is presentation integrity,
- * not scoring identity.
+ * not scoring identity. Shape validation does not authenticate this hash: the
+ * package-authoring/integrity owner must recompute it from canonical bytes.
  *
  * @typedef {AeroNotePalettePair & {
  *   schema: "aerobeat/authored_note_palette",
@@ -68,7 +69,9 @@ export const defaultNotePalette = Object.freeze({
  */
 
 /**
- * Runtime-effective palette. Deliberately excludes archive provenance.
+ * Runtime-effective palette. Deliberately excludes archive provenance. Its hash
+ * is structural here; the downstream content integrity owner must recompute it
+ * before constructing or trusting an effective record.
  *
  * @typedef {Object} AeroEffectiveNotePalette
  * @property {"aerobeat/effective_note_palette"} schema Schema ID.
