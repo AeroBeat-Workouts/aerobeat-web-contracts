@@ -84,11 +84,13 @@ export const defaultNotePalette = Object.freeze({
  */
 
 /**
- * Private content-to-renderer appearance seam. It intentionally carries only the
- * effective fill token and cannot disclose palette source or provenance.
+ * Private content-to-renderer dynamic hittable-cue appearance seam for eligible
+ * Flow notes and Boxing punches. It intentionally carries only the effective fill
+ * token and cannot disclose palette source or provenance. Guards, bombs and
+ * obstacle/wall cues are outside this contract.
  *
  * @typedef {Object} AeroPrivateNoteAppearance
- * @property {string} appearanceColor Canonical uppercase opaque `#RRGGBB` sRGB fill token.
+ * @property {string} appearanceColor Canonical uppercase opaque `#RRGGBB` sRGB fill token; authored structural outlines remain white.
  */
 
 const sha256TokenPattern = /^sha256:[0-9a-f]{64}$/u;
