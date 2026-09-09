@@ -1,6 +1,7 @@
 // @ts-check
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   boxingActions,
   contentImportJobStates,
@@ -20,6 +21,8 @@ import {
   isContentVariantIdentity,
   isCountdownSnapshot,
   isFullscreenSnapshot,
+  isFlowCollidersPublicSummary,
+  flowCollidersPublicCountMaximum,
   isGameCapabilities,
   isGameCommand,
   isGameEvent,
@@ -36,6 +39,7 @@ import {
   obstacleResults,
   isPersistenceHandle,
   isPrototypeTuningIdentity,
+  isRulesetId,
   isThemeDescriptor,
   mapModifierIds,
   prototypeJudgementDefaults,
@@ -55,7 +59,11 @@ assert.equal(serviceIds.bodyGrid, "aero.input.body-grid");
 assert.equal(serviceIds.beatSaverVendor, "aero.vendor.beatsaver");
 assert.equal(serviceIds.contentAuthoring, "aero.content.authoring");
 assert.equal(eventNames.contentImportChanged, "aero:content:import-changed");
-assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_grid_v2", "boxing_semantic_track_v1", "boxing_spatial_grid_v1"]);
+assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_grid_v2", "flow_colliders_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1"]);
+for (const rulesetId of rulesetIds) assert.equal(isRulesetId(rulesetId), true);
+for (const invalidRulesetId of ["flow_colliders", "FLOW_COLLIDERS_V1", "flow-colliders-v1", " flow_colliders_v1", null]) {
+  assert.equal(isRulesetId(invalidRulesetId), false, "ruleset aliases and non-string values reject");
+}
 assert.deepEqual(obstacleResults, ["contact", "avoided", "unevaluated_tracking"]);
 assert.deepEqual(conversionRecipeIds, ["row_family_balanced_height_v1", "cut_family_source_height_v1"]);
 assert.equal(mapModifierIds.includes("crossed_guard"), true);
@@ -64,6 +72,59 @@ assert.equal(prototypeJudgementDefaults.timingWindowBeforeMs, 180);
 assert.equal(prototypeJudgementDefaults.checkpointFreshnessMs, 150);
 assert.equal(prototypeJudgementDefaults.straightQualificationMs, 100);
 assert.equal(prototypeJudgementDefaults.minimumPunchSpacingMs, 360);
+
+const flowCollidersSummary = JSON.parse(readFileSync(new URL("../fixtures/flow-colliders-public-summary-v1.json", import.meta.url), "utf8"));
+assert.equal(isFlowCollidersPublicSummary(flowCollidersSummary), true, "canonical semantic-only fixture accepts");
+assert.equal(flowCollidersPublicCountMaximum, 1_000_000);
+assert.equal(isFlowCollidersPublicSummary({
+  ...flowCollidersSummary,
+  latestJudgement: null,
+  notes: { hit: 0, miss: flowCollidersPublicCountMaximum },
+  bombs: { contact: 0, avoided: 0, unevaluatedTracking: 0 },
+  walls: { contact: flowCollidersPublicCountMaximum, avoided: 0, unevaluatedTracking: 0 }
+}), true, "empty/latest-null and exact count boundaries accept");
+for (const invalid of [
+  { ...flowCollidersSummary, rulesetId: "flow_grid_v2" },
+  { ...flowCollidersSummary, mode: "flow_colliders" },
+  { ...flowCollidersSummary, latestJudgement: { result: "ignored", diagnostics: [] } },
+  { ...flowCollidersSummary, latestJudgement: { result: "miss", diagnostics: ["wrong_collider", "wrong_collider"] } },
+  { ...flowCollidersSummary, latestJudgement: { result: "miss", diagnostics: ["distance_miss"] } },
+  { ...flowCollidersSummary, latestJudgement: { result: "miss", diagnostics: [], eventId: "private" } },
+  { ...flowCollidersSummary, notes: { hit: -1, miss: 0 } },
+  { ...flowCollidersSummary, notes: { hit: 0.5, miss: 0 } },
+  { ...flowCollidersSummary, notes: { hit: flowCollidersPublicCountMaximum + 1, miss: 0 } },
+  { ...flowCollidersSummary, bombs: { ...flowCollidersSummary.bombs, wristContacts: 1 } },
+  { ...flowCollidersSummary, walls: { ...flowCollidersSummary.walls, noseContacts: 1 } },
+  { ...flowCollidersSummary, unexpected: true }
+]) assert.equal(isFlowCollidersPublicSummary(invalid), false, "aliases, unbounded counts, and non-contract fields reject");
+
+const forbiddenFlowCollidersFields = [
+  "wristX", "wristY", "noseX", "noseY", "coordinates", "segment", "geometry", "radius", "vector",
+  "timestampMs", "contactTimestampMs", "poseIdentity", "calibrationId", "sourceId", "frameId", "collisionEvidence"
+];
+for (const forbiddenField of forbiddenFlowCollidersFields) {
+  assert.equal(isFlowCollidersPublicSummary({ ...flowCollidersSummary, [forbiddenField]: "private" }), false, `${forbiddenField} privacy evidence rejects`);
+}
+const hiddenFlowSummary = { ...flowCollidersSummary };
+Object.defineProperty(hiddenFlowSummary, "wristX", { value: 0.5 });
+assert.equal(isFlowCollidersPublicSummary(hiddenFlowSummary), false, "hidden private evidence rejects");
+const symbolicFlowSummary = { ...flowCollidersSummary, [Symbol("frameId")]: "private" };
+assert.equal(isFlowCollidersPublicSummary(symbolicFlowSummary), false, "symbolic private evidence rejects");
+let flowSummaryAccessorCalled = false;
+const accessorFlowSummary = { ...flowCollidersSummary };
+Object.defineProperty(accessorFlowSummary, "notes", { enumerable: true, get() { flowSummaryAccessorCalled = true; return { hit: 0, miss: 0 }; } });
+assert.equal(isFlowCollidersPublicSummary(accessorFlowSummary), false);
+assert.equal(flowSummaryAccessorCalled, false, "public summary validator must not invoke accessors");
+let nestedFlowAccessorCalled = false;
+const accessorFlowCounts = { hit: 24, miss: 3 };
+Object.defineProperty(accessorFlowCounts, "hit", { enumerable: true, get() { nestedFlowAccessorCalled = true; return 24; } });
+assert.equal(isFlowCollidersPublicSummary({ ...flowCollidersSummary, notes: accessorFlowCounts }), false);
+assert.equal(nestedFlowAccessorCalled, false, "nested count validator must not invoke accessors");
+const fixtureJson = JSON.stringify(flowCollidersSummary);
+for (const forbiddenFragment of ["wrist", "nose", "coordinate", "segment", "geometry", "radius", "vector", "timestamp", "pose", "calibration", "source", "frame", "evidence", "eventId"]) {
+  assert.equal(fixtureJson.toLowerCase().includes(forbiddenFragment.toLowerCase()), false, `fixture omits private ${forbiddenFragment} data`);
+}
+
 assert.deepEqual(gameplaySessionPurposes, ["play", "visual_test"]);
 assert.equal(isGameplaySessionPurpose("play"), true);
 assert.equal(isGameplaySessionPurpose("visual_test"), true);
@@ -218,6 +279,12 @@ const committedJudgement = {
 };
 assert.equal(isGameplayJudgementV2(committedJudgement), true);
 assert.equal(isGameplayJudgement(committedJudgement), true);
+assert.equal(isGameplayJudgementV2({
+  ...committedJudgement,
+  rulesetId: "flow_colliders_v1",
+  recipeId: null,
+  diagnostics: ["wrong_collider"]
+}), true, "Flow Colliders exact ruleset and bounded semantic diagnostic accept");
 for (const invalid of [
   { ...committedJudgement, sessionPurpose: "visual_test" },
   { ...committedJudgement, committedTimelinePositionMs: -1 },

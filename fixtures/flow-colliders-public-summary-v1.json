@@ -1,0 +1,26 @@
+{
+  "schema": "aerobeat/flow_colliders_public_summary",
+  "version": 1,
+  "mode": "flow",
+  "rulesetId": "flow_colliders_v1",
+  "latestJudgement": {
+    "result": "miss",
+    "diagnostics": [
+      "wrong_collider"
+    ]
+  },
+  "notes": {
+    "hit": 24,
+    "miss": 3
+  },
+  "bombs": {
+    "contact": 1,
+    "avoided": 5,
+    "unevaluatedTracking": 0
+  },
+  "walls": {
+    "contact": 2,
+    "avoided": 4,
+    "unevaluatedTracking": 1
+  }
+}

@@ -10,7 +10,7 @@ import {
 import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contracts.js";
 
 /**
- * @typedef {"flow_grid_v1" | "flow_grid_v2" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1"} AeroRulesetId
+ * @typedef {"flow_grid_v1" | "flow_grid_v2" | "flow_colliders_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1"} AeroRulesetId
  */
 
 /**
@@ -22,7 +22,44 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 
 /**
- * @typedef {"no_input" | "stale_input" | "wrong_cell" | "wrong_subcell" | "wrong_direction" | "qualification_too_short" | "tracking_invalid" | "calibration_mismatch" | "timing_miss" | "blocked_overlap" | "action_consumed"} AeroJudgementDiagnosticCode
+ * @typedef {"no_input" | "stale_input" | "wrong_collider" | "wrong_cell" | "wrong_subcell" | "wrong_direction" | "qualification_too_short" | "tracking_invalid" | "calibration_mismatch" | "timing_miss" | "blocked_overlap" | "action_consumed"} AeroJudgementDiagnosticCode
+ */
+
+/**
+ * Semantic-only latest Flow Colliders note judgement. Authored event identity,
+ * timing, pose identity, and collision evidence are intentionally absent.
+ *
+ * @typedef {Object} AeroFlowCollidersLatestJudgement
+ * @property {"hit" | "miss"} result Latest resolved note result.
+ * @property {readonly AeroJudgementDiagnosticCode[]} diagnostics Bounded semantic diagnostics only.
+ */
+
+/**
+ * @typedef {Object} AeroFlowCollidersNoteCounts
+ * @property {number} hit Resolved note hits.
+ * @property {number} miss Resolved note misses.
+ */
+
+/**
+ * @typedef {Object} AeroFlowCollidersHazardCounts
+ * @property {number} contact Proven hazard contacts.
+ * @property {number} avoided Proven avoided hazards.
+ * @property {number} unevaluatedTracking Hazards without complete tracking coverage.
+ */
+
+/**
+ * Strict semantic-only public Flow Colliders projection. It is not collision
+ * evidence and cannot contain landmark, geometry, timing, or provenance data.
+ *
+ * @typedef {Object} AeroFlowCollidersPublicSummary
+ * @property {"aerobeat/flow_colliders_public_summary"} schema Schema ID.
+ * @property {1} version Schema version.
+ * @property {"flow"} mode Stable renderer/gameplay mode identity.
+ * @property {"flow_colliders_v1"} rulesetId Exact collision ruleset identity.
+ * @property {AeroFlowCollidersLatestJudgement | null} latestJudgement Latest semantic note judgement, if any.
+ * @property {AeroFlowCollidersNoteCounts} notes Bounded aggregate note counts.
+ * @property {AeroFlowCollidersHazardCounts} bombs Bounded aggregate bomb counts.
+ * @property {AeroFlowCollidersHazardCounts} walls Bounded aggregate wall counts.
  */
 
 /**
@@ -155,9 +192,18 @@ export function isObstacleOutcome(value) {
 export const rulesetIds = Object.freeze([
   "flow_grid_v1",
   "flow_grid_v2",
+  "flow_colliders_v1",
   "boxing_semantic_track_v1",
   "boxing_spatial_grid_v1"
 ]);
+
+/**
+ * @param {unknown} value
+ * @returns {value is AeroRulesetId}
+ */
+export function isRulesetId(value) {
+  return isOneOf(value, rulesetIds);
+}
 
 /** @type {readonly AeroConversionRecipeId[]} */
 export const conversionRecipeIds = Object.freeze([
@@ -184,6 +230,7 @@ export const boxingActions = Object.freeze([
 export const judgementDiagnosticCodes = Object.freeze([
   "no_input",
   "stale_input",
+  "wrong_collider",
   "wrong_cell",
   "wrong_subcell",
   "wrong_direction",
@@ -194,6 +241,29 @@ export const judgementDiagnosticCodes = Object.freeze([
   "blocked_overlap",
   "action_consumed"
 ]);
+
+/** Maximum value accepted for each public Flow Colliders aggregate count. */
+export const flowCollidersPublicCountMaximum = 1_000_000;
+
+/**
+ * Accept only the bounded semantic projection. Extra, hidden, symbolic, or
+ * accessor properties reject, including private collision evidence.
+ *
+ * @param {unknown} value
+ * @returns {value is AeroFlowCollidersPublicSummary}
+ */
+export function isFlowCollidersPublicSummary(value) {
+  const fields = ["schema", "version", "mode", "rulesetId", "latestJudgement", "notes", "bombs", "walls"];
+  return hasExactKeys(value, fields) &&
+    value.schema === "aerobeat/flow_colliders_public_summary" &&
+    value.version === 1 &&
+    value.mode === "flow" &&
+    value.rulesetId === "flow_colliders_v1" &&
+    (value.latestJudgement === null || isFlowCollidersLatestJudgement(value.latestJudgement)) &&
+    isFlowCollidersNoteCounts(value.notes) &&
+    isFlowCollidersHazardCounts(value.bombs) &&
+    isFlowCollidersHazardCounts(value.walls);
+}
 
 export const prototypeJudgementDefaults = Object.freeze({
   timingWindowBeforeMs: 180,
@@ -290,6 +360,33 @@ export function isPrototypeTuningIdentity(value) {
     isOneOf(value.class, classes) &&
     typeof value.regenerationRequired === "boolean" &&
     (value.class === "converter_regeneration" || value.regenerationRequired === false);
+}
+
+/** @param {unknown} value */
+function isFlowCollidersLatestJudgement(value) {
+  return hasExactKeys(value, ["result", "diagnostics"]) &&
+    (value.result === "hit" || value.result === "miss") &&
+    isExactDiagnosticList(value.diagnostics);
+}
+
+/** @param {unknown} value */
+function isFlowCollidersNoteCounts(value) {
+  return hasExactKeys(value, ["hit", "miss"]) &&
+    isBoundedAggregateCount(value.hit) &&
+    isBoundedAggregateCount(value.miss);
+}
+
+/** @param {unknown} value */
+function isFlowCollidersHazardCounts(value) {
+  return hasExactKeys(value, ["contact", "avoided", "unevaluatedTracking"]) &&
+    isBoundedAggregateCount(value.contact) &&
+    isBoundedAggregateCount(value.avoided) &&
+    isBoundedAggregateCount(value.unevaluatedTracking);
+}
+
+/** @param {unknown} value */
+function isBoundedAggregateCount(value) {
+  return Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= flowCollidersPublicCountMaximum;
 }
 
 /** @param {unknown} value @param {number} maximum */
