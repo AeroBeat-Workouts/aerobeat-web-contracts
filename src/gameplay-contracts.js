@@ -26,6 +26,47 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 
 /**
+ * Per-class visual scale tuning, persisted in Game Setup v3. Each percent is a
+ * bounded integer 10-200 defaulting to 100 (today's exact behavior).
+ *
+ * @typedef {Readonly<{noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number}>} AeroVisualScaleSetup
+ */
+
+/**
+ * Persisted Game Setup v3 snapshot. Stored records missing the four scale
+ * percent fields are forward-compatible reads that normalize to 100.
+ *
+ * @typedef {Readonly<{schema:string,version:3,showGameplayGrid:boolean,guidanceBandMode:"off"|"song_beat_grid"|"target_arrivals",noseCameraParallaxEnabled:boolean,spawnDistanceOverride:Readonly<{enabled:boolean,normalSpawnDistanceWorldUnits:number}>,noseCameraRangeXWorldUnits:number,noseCameraRangeYWorldUnits:number,colliderRadius:number,enforceAuthoredDirection:boolean,directionToleranceDegrees:number,timingWindowMs:number,noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number}>} AeroGameSetupSnapshotV3
+ */
+
+/**
+ * Canonical persistence identity for Game Setup v3. The four per-class visual
+ * scale percentages (each 10-200 integer, default 100) extend the timing and
+ * collider setup; stored records without them read as 100.
+ *
+ * @type {Readonly<{schema:string,version:3,key:string}>}
+ */
+export const aeroGameSetupIdentity = Object.freeze({ schema: "aerobeat/game_setup", version: 3, key: "aerobeat.game-setup.v3" });
+
+/** Exact bounds for each per-class visual scale percent control. @type {Readonly<readonly [keyof import("./gameplay-contracts.js").AeroVisualScaleSetup,number,number][]>} */
+export const aeroVisualScaleBounds = Object.freeze(Object.freeze([["noteScalePercent", 10, 200], ["obstacleScalePercent", 10, 200], ["bombScalePercent", 10, 200], ["markerScalePercent", 10, 200]]));
+
+/**
+ * Type guard for one per-class visual scale record: exactly the four bounded
+ * integer percent keys, each within its inclusive 10-200 bounds.
+ *
+ * @param {unknown} value
+ * @returns {value is import("./gameplay-contracts.js").AeroVisualScaleSetup}
+ */
+export function isVisualScaleSetup(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = /** @type {Record<string, unknown>} */ (value);
+  const ownKeys = Reflect.ownKeys(record);
+  if (ownKeys.length !== aeroVisualScaleBounds.length) return false;
+  return aeroVisualScaleBounds.every(([key, minimum, maximum]) => Number.isInteger(record[key]) && Number(record[key]) >= minimum && Number(record[key]) <= maximum);
+}
+
+/**
  * Semantic-only latest Flow Colliders note judgement. Authored event identity,
  * timing, pose identity, and collision evidence are intentionally absent.
  *

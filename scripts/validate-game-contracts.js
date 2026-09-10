@@ -3,6 +3,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  aeroGameSetupIdentity,
+  aeroVisualScaleBounds,
+  isVisualScaleSetup,
   boxingActions,
   contentImportJobStates,
   conversionRecipeIds,
@@ -46,6 +49,13 @@ import {
   rulesetIds,
   serviceIds
 } from "../src/index.js";
+
+// Game Setup v3 per-class visual scale contracts (tenl).
+assert.deepEqual(aeroGameSetupIdentity, { schema: "aerobeat/game_setup", version: 3, key: "aerobeat.game-setup.v3" });
+assert(Object.isFrozen(aeroGameSetupIdentity) && Object.isFrozen(aeroVisualScaleBounds));
+const exactScales = { noteScalePercent: 100, obstacleScalePercent: 100, bombScalePercent: 100, markerScalePercent: 100 };
+for (const value of [exactScales, { ...exactScales, noteScalePercent: 10 }, { ...exactScales, markerScalePercent: 200 }]) assert.equal(isVisualScaleSetup(value), true, `scale setup accepts bounded integer ${JSON.stringify(value)}`);
+for (const value of [{}, null, [], {...exactScales, extra: 1}, {...exactScales, noteScalePercent: 9}, {...exactScales, obstacleScalePercent: 201}, {...exactScales, bombScalePercent: 100.5}, {...exactScales, markerScalePercent: -10}, Object.create(exactScales)]) assert.equal(isVisualScaleSetup(value), false, `scale setup rejects hostile/out-of-bounds ${JSON.stringify(value)}`);
 
 const sha1 = { schema: "aerobeat/content_hash", version: 1, algorithm: "sha1", value: "a".repeat(40) };
 const sha256 = { schema: "aerobeat/content_hash", version: 1, algorithm: "sha256", value: "b".repeat(64) };
