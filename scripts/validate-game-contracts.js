@@ -59,7 +59,7 @@ assert.equal(serviceIds.bodyGrid, "aero.input.body-grid");
 assert.equal(serviceIds.beatSaverVendor, "aero.vendor.beatsaver");
 assert.equal(serviceIds.contentAuthoring, "aero.content.authoring");
 assert.equal(eventNames.contentImportChanged, "aero:content:import-changed");
-assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_grid_v2", "flow_colliders_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1"]);
+assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_colliders_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1"]);
 for (const rulesetId of rulesetIds) assert.equal(isRulesetId(rulesetId), true);
 for (const invalidRulesetId of ["flow_colliders", "FLOW_COLLIDERS_V1", "flow-colliders-v1", " flow_colliders_v1", null]) {
   assert.equal(isRulesetId(invalidRulesetId), false, "ruleset aliases and non-string values reject");
@@ -314,7 +314,7 @@ const obstacleOutcome = {
   schema: "aerobeat/obstacle_outcome",
   version: 1,
   eventId: "flow-obstacle-1",
-  rulesetId: "flow_grid_v2",
+  rulesetId: "flow_colliders_v1",
   result: "contact",
   intervalStartTimestampMs: 37039.99938964844,
   intervalEndTimestampMs: 37064.99938964844,
@@ -327,6 +327,7 @@ const obstacleOutcome = {
   consequenceApplied: true
 };
 assert.equal(isObstacleOutcome(obstacleOutcome), true);
+assert.equal(isObstacleOutcome({ ...obstacleOutcome, rulesetId: "flow_grid_v2" }), false, "retired Flow Grid ruleset rejects");
 assert.equal(isObstacleOutcome({ ...obstacleOutcome, rulesetId: "flow_grid_v1" }), false);
 assert.equal(isObstacleOutcome({ ...obstacleOutcome, intervalEndTimestampMs: obstacleOutcome.intervalStartTimestampMs }), false);
 assert.equal(isObstacleOutcome({ ...obstacleOutcome, contactDurationMs: 26 }), false);

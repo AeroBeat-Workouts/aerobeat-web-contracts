@@ -10,7 +10,7 @@ import {
 import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contracts.js";
 
 /**
- * @typedef {"flow_grid_v1" | "flow_grid_v2" | "flow_colliders_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1"} AeroRulesetId
+ * @typedef {"flow_grid_v1" | "flow_colliders_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1"} AeroRulesetId
  */
 
 /**
@@ -123,7 +123,7 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  * @property {"aerobeat/obstacle_outcome"} schema Schema ID.
  * @property {1} version Schema version.
  * @property {string} eventId Authored obstacle identity.
- * @property {"flow_grid_v2"} rulesetId Source-geometry Flow ruleset.
+ * @property {"flow_colliders_v1"} rulesetId Exact Flow ruleset identity.
  * @property {AeroObstacleResult} result Evaluation result.
  * @property {number} intervalStartTimestampMs Exact authored interval start.
  * @property {number} intervalEndTimestampMs Exact authored interval end.
@@ -153,7 +153,7 @@ export const obstacleResults = Object.freeze(["contact", "avoided", "unevaluated
 export function isObstacleOutcome(value) {
   const fields = ["schema", "version", "eventId", "rulesetId", "result", "intervalStartTimestampMs", "intervalEndTimestampMs", "committedTimelinePositionMs", "firstContactTimelinePositionMs", "contactDurationMs", "contactEpisodeId", "evidenceFrameId", "calibrationId", "consequenceApplied"];
   if (!hasExactKeys(value, fields) || value.schema !== "aerobeat/obstacle_outcome" || value.version !== 1 ||
-      !isBoundedNonEmptyString(value.eventId, 512) || value.rulesetId !== "flow_grid_v2" || !isOneOf(value.result, obstacleResults) ||
+      !isBoundedNonEmptyString(value.eventId, 512) || value.rulesetId !== "flow_colliders_v1" || !isOneOf(value.result, obstacleResults) ||
       !isNonNegativeFiniteNumber(value.intervalStartTimestampMs) || !isNonNegativeFiniteNumber(value.intervalEndTimestampMs) ||
       value.intervalEndTimestampMs <= value.intervalStartTimestampMs || value.intervalEndTimestampMs > 86_400_000 ||
       !isNonNegativeFiniteNumber(value.committedTimelinePositionMs) || value.committedTimelinePositionMs > 86_400_000 ||
@@ -191,7 +191,6 @@ export function isObstacleOutcome(value) {
 /** @type {readonly AeroRulesetId[]} */
 export const rulesetIds = Object.freeze([
   "flow_grid_v1",
-  "flow_grid_v2",
   "flow_colliders_v1",
   "boxing_semantic_track_v1",
   "boxing_spatial_grid_v1"

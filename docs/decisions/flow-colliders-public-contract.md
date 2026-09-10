@@ -2,10 +2,11 @@
 
 **Status:** Accepted
 **Date:** 2026-09-09
+**Amendment (2026-09-10):** Round-4 flow successor (`aerobeat-web-assembly-8tz4`): the Flow Grid ruleset is deleted and Flow Colliders becomes the sole Flow ruleset, keeping this exact ID and taking the visible label `Flow`.
 
 ## Decision
 
-`flow_colliders_v1` is an exact ruleset ID alongside the stable `flow_grid_v1` and `flow_grid_v2` IDs. It does not rename, replace, or reinterpret either Flow Grid ruleset. The public ruleset validator accepts only declared exact IDs; case, separator, whitespace, and shortened aliases reject.
+`flow_colliders_v1` is the sole Flow ruleset ID. The retired Flow Grid ID `flow_grid_v2` is removed from the public ruleset registry (the historical `flow_grid_v1` legacy ID remains for backwards-compatible judgement reads). `flow_colliders_v1` is not renamed: it keeps this exact ID and simply drops the Flow Grid successor distinction. The public ruleset validator accepts only declared exact IDs; case, separator, whitespace, and shortened aliases reject.
 
 The optional version-1 Flow Colliders public summary is deliberately semantic-only. Its exact record contains:
 
@@ -24,7 +25,7 @@ The `wrong_collider` diagnostic is a bounded semantic outcome code only. It comm
 
 ## Consequences
 
-- Flow Colliders consumers can partition packages, gameplay, and scores using one shared exact ID without changing Flow Grid compatibility.
+- Flow Colliders consumers can partition packages, gameplay, and scores using one shared exact ID; the Flow Grid ruleset no longer exists and its retired `flow_grid_v2` ID rejects in new contracts.
 - Assembly may expose the strict summary or an equivalent narrower projection, but cannot append evidence fields.
 - Gameplay settings, scoring behavior, content/package formats, renderer state, UI selection, assembly wiring, and release publication remain owned by their respective packages and are outside this contract decision.
 - The canonical deterministic fixture is `fixtures/flow-colliders-public-summary-v1.json`; contract tests assert acceptance, strict rejection, accessor safety, bounds, and privacy exclusions.
