@@ -48,8 +48,9 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 export const aeroGameSetupIdentity = Object.freeze({ schema: "aerobeat/game_setup", version: 3, key: "aerobeat.game-setup.v3" });
 
-/** Exact bounds for each per-class visual scale percent control. @type {Readonly<readonly [keyof import("./gameplay-contracts.js").AeroVisualScaleSetup,number,number][]>} */
-export const aeroVisualScaleBounds = Object.freeze(Object.freeze([["noteScalePercent", 10, 200], ["obstacleScalePercent", 10, 200], ["bombScalePercent", 10, 200], ["markerScalePercent", 10, 200]]));
+/** Exact bounds for each per-class visual scale percent control. */
+export const aeroVisualScaleBounds = Object.freeze([Object.freeze(["noteScalePercent", 10, 200]), Object.freeze(["obstacleScalePercent", 10, 200]), Object.freeze(["bombScalePercent", 10, 200]), Object.freeze(["markerScalePercent", 10, 200])]);
+const visualScaleBoundsTuples = /** @type {readonly (readonly ["noteScalePercent"|"obstacleScalePercent"|"bombScalePercent"|"markerScalePercent",number,number])[]} */ (aeroVisualScaleBounds);
 
 /**
  * Type guard for one per-class visual scale record: exactly the four bounded
@@ -62,8 +63,8 @@ export function isVisualScaleSetup(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const record = /** @type {Record<string, unknown>} */ (value);
   const ownKeys = Reflect.ownKeys(record);
-  if (ownKeys.length !== aeroVisualScaleBounds.length) return false;
-  return aeroVisualScaleBounds.every(([key, minimum, maximum]) => Number.isInteger(record[key]) && Number(record[key]) >= minimum && Number(record[key]) <= maximum);
+  if (ownKeys.length !== visualScaleBoundsTuples.length) return false;
+  return visualScaleBoundsTuples.every(([key, minimum, maximum]) => Number.isInteger(record[key]) && Number(record[key]) >= minimum && Number(record[key]) <= maximum);
 }
 
 /**
