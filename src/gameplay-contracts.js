@@ -33,16 +33,31 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 
 /**
- * Persisted Game Setup v3 snapshot. Stored records missing the four scale
- * percent fields are forward-compatible reads that normalize to 100.
+ * Per-camera-environment video-fit tuning (he8u), persisted in Game Setup v3.
+ * The affine best-fit of the camera video onto the calibrated body grid is a
+ * derived solver output; these user knobs are RELATIVE adjustments on that
+ * derived fit, so locked values stay device-independent. scalePercent is a
+ * bounded integer 90-110 defaulting to 100; the offsets are bounded integers
+ * -10..10 defaulting to 0; the reference picks where the affine fit is exact
+ * on the trapezoid and defaults to "center". The master toggle defaults to
+ * false (no fit, cover fallback).
  *
- * @typedef {Readonly<{schema:string,version:3,showGameplayGrid:boolean,guidanceBandMode:"off"|"song_beat_grid"|"target_arrivals",noseCameraParallaxEnabled:boolean,spawnDistanceOverride:Readonly<{enabled:boolean,normalSpawnDistanceWorldUnits:number}>,noseCameraRangeXWorldUnits:number,noseCameraRangeYWorldUnits:number,colliderRadius:number,enforceAuthoredDirection:boolean,directionToleranceDegrees:number,timingWindowMs:number,noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number}>} AeroGameSetupSnapshotV3
+ * @typedef {Readonly<{enabled:boolean,scalePercent:number,offsetXPercent:number,offsetYPercent:number,reference:"center"|"far"|"near"}>} AeroVideoFitSetup
+ */
+
+/**
+ * Persisted Game Setup v3 snapshot. Stored records missing the four scale
+ * percent fields are forward-compatible reads that normalize to 100; stored
+ * records missing `videoFit` normalize to the all-defaults video fit.
+ *
+ * @typedef {Readonly<{schema:string,version:3,showGameplayGrid:boolean,guidanceBandMode:"off"|"song_beat_grid"|"target_arrivals",noseCameraParallaxEnabled:boolean,spawnDistanceOverride:Readonly<{enabled:boolean,normalSpawnDistanceWorldUnits:number}>,noseCameraRangeXWorldUnits:number,noseCameraRangeYWorldUnits:number,colliderRadius:number,enforceAuthoredDirection:boolean,directionToleranceDegrees:number,timingWindowMs:number,noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number,videoFit:AeroVideoFitSetup}>} AeroGameSetupSnapshotV3
  */
 
 /**
  * Canonical persistence identity for Game Setup v3. The four per-class visual
- * scale percentages (each 10-200 integer, default 100) extend the timing and
- * collider setup; stored records without them read as 100.
+ * scale percentages (each 10-200 integer, default 100) and the videoFit
+ * record (he8u; all-defaults when absent) extend the timing and collider
+ * setup; stored records without them read as the defaults.
  *
  * @type {Readonly<{schema:string,version:3,key:string}>}
  */
@@ -65,6 +80,74 @@ export function isVisualScaleSetup(value) {
   const ownKeys = Reflect.ownKeys(record);
   if (ownKeys.length !== visualScaleBoundsTuples.length) return false;
   return visualScaleBoundsTuples.every(([key, minimum, maximum]) => Number.isInteger(record[key]) && Number(record[key]) >= minimum && Number(record[key]) <= maximum);
+}
+
+/** Exact reference anchors for the video-fit affine fit (he8u). */
+export const aeroVideoFitReferences = Object.freeze(["center", "far", "near"]);
+
+/** Exact bounds and defaults for the video-fit integer percent knobs (he8u). */
+export const aeroVideoFitBounds = Object.freeze([Object.freeze(["scalePercent", 90, 110, 100]), Object.freeze(["offsetXPercent", -10, 10, 0]), Object.freeze(["offsetYPercent", -10, 10, 0])]);
+const videoFitBoundsTuples = /** @type {readonly (readonly ["scalePercent"|"offsetXPercent"|"offsetYPercent",number,number,number])[]} */ (aeroVideoFitBounds);
+
+/** All-defaults video-fit record (he8u); the forward-compat target for stored v3 records without `videoFit`. */
+export const defaultVideoFit = Object.freeze({ enabled: false, scalePercent: 100, offsetXPercent: 0, offsetYPercent: 0, reference: "center" });
+
+/**
+ * Type guard for one video-fit record: exactly the five declared keys; the
+ * bounded integer percents within their inclusive bounds and the exact
+ * reference enum. Mirrors the per-class scale rejection semantics.
+ *
+ * @param {unknown} value
+ * @returns {value is import("./gameplay-contracts.js").AeroVideoFitSetup}
+ */
+export function isVideoFitSetup(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = /** @type {Record<string, unknown>} */ (value);
+  const ownKeys = Reflect.ownKeys(record);
+  if (ownKeys.length !== 5) return false;
+  if (typeof record.enabled !== "boolean") return false;
+  if (!isOneOf(record.reference, aeroVideoFitReferences)) return false;
+  return videoFitBoundsTuples.every(([key, minimum, maximum]) => Number.isInteger(record[key]) && Number(record[key]) >= minimum && Number(record[key]) <= maximum);
+}
+
+/**
+ * Forward-compatible video-fit read (he8u): a stored record missing `videoFit`
+ * (or missing individual fields) normalizes field-by-field to the all-defaults
+ * record; a present-but-out-of-bounds, non-integer, or wrong-shape record
+ * rejects the whole setup.
+ *
+ * @param {unknown} value
+ * @returns {AeroVideoFitSetup | null}
+ */
+export function normalizeVideoFit(value) {
+  if (value === undefined) return defaultVideoFit;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = /** @type {Record<string, unknown>} */ (value);
+  const ownKeys = Reflect.ownKeys(record);
+  if (ownKeys.length > 5) return null;
+  const knownKeys = ["enabled", "scalePercent", "offsetXPercent", "offsetYPercent", "reference"];
+  if (ownKeys.some((key) => typeof key !== "string" || !knownKeys.includes(key))) return null;
+  const ownValue = (key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(record, key);
+    if (descriptor === undefined || !("value" in descriptor) || descriptor.value === undefined) return undefined;
+    return descriptor.value;
+  };
+  const ownEnabled = ownValue("enabled");
+  const ownReference = ownValue("reference");
+  if (ownEnabled !== undefined && typeof ownEnabled !== "boolean") return null;
+  if (ownReference !== undefined && !isOneOf(ownReference, aeroVideoFitReferences)) return null;
+  const normalized = /** @type {Record<string, unknown>} */ ({ enabled: ownEnabled === undefined ? false : ownEnabled, reference: ownReference === undefined ? "center" : ownReference });
+  for (const [key, minimum, maximum, fallback] of videoFitBoundsTuples) {
+    const raw = ownValue(key);
+    if (raw !== undefined) {
+      if (!Number.isInteger(raw) || Number(raw) < minimum || Number(raw) > maximum) return null;
+      normalized[key] = Number(raw);
+    } else {
+      normalized[key] = fallback;
+    }
+  }
+  if (!isVideoFitSetup(normalized)) return null;
+  return /** @type {AeroVideoFitSetup} */ (Object.freeze(normalized));
 }
 
 /**

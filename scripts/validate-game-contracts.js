@@ -4,8 +4,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   aeroGameSetupIdentity,
+  aeroVideoFitBounds,
+  aeroVideoFitReferences,
   aeroVisualScaleBounds,
+  defaultVideoFit,
+  isVideoFitSetup,
   isVisualScaleSetup,
+  normalizeVideoFit,
   boxingActions,
   contentImportJobStates,
   conversionRecipeIds,
@@ -56,6 +61,57 @@ assert(Object.isFrozen(aeroGameSetupIdentity) && Object.isFrozen(aeroVisualScale
 const exactScales = { noteScalePercent: 100, obstacleScalePercent: 100, bombScalePercent: 100, markerScalePercent: 100 };
 for (const value of [exactScales, { ...exactScales, noteScalePercent: 10 }, { ...exactScales, markerScalePercent: 200 }]) assert.equal(isVisualScaleSetup(value), true, `scale setup accepts bounded integer ${JSON.stringify(value)}`);
 for (const value of [{}, null, [], {...exactScales, extra: 1}, {...exactScales, noteScalePercent: 9}, {...exactScales, obstacleScalePercent: 201}, {...exactScales, bombScalePercent: 100.5}, {...exactScales, markerScalePercent: -10}, Object.create(exactScales)]) assert.equal(isVisualScaleSetup(value), false, `scale setup rejects hostile/out-of-bounds ${JSON.stringify(value)}`);
+
+// Game Setup v3 video-fit contracts (he8u): exact bounds, integer semantics,
+// reference enum, forward-compat defaults, and round-trip.
+assert.deepEqual(aeroVideoFitReferences, ["center", "far", "near"]);
+assert.deepEqual(aeroVideoFitBounds, [["scalePercent", 90, 110, 100], ["offsetXPercent", -10, 10, 0], ["offsetYPercent", -10, 10, 0]]);
+assert(Object.isFrozen(aeroVideoFitReferences) && Object.isFrozen(aeroVideoFitBounds) && Object.isFrozen(defaultVideoFit));
+assert.deepEqual(defaultVideoFit, { enabled: false, scalePercent: 100, offsetXPercent: 0, offsetYPercent: 0, reference: "center" });
+assert.deepEqual(normalizeVideoFit(undefined), defaultVideoFit, "missing videoFit field normalizes to all defaults");
+assert.deepEqual(normalizeVideoFit({}), defaultVideoFit, "empty videoFit record normalizes to all defaults");
+assert.deepEqual(normalizeVideoFit({ scalePercent: 105 }), { enabled: false, scalePercent: 105, offsetXPercent: 0, offsetYPercent: 0, reference: "center" }, "partial videoFit fills the remaining defaults");
+for (const value of [
+  { enabled: true, scalePercent: 90, offsetXPercent: -10, offsetYPercent: 10, reference: "far" },
+  { enabled: false, scalePercent: 110, offsetXPercent: 10, offsetYPercent: -10, reference: "near" },
+  defaultVideoFit
+]) assert.equal(isVideoFitSetup(value), true, `video fit accepts bounds-integral ${JSON.stringify(value)}`);
+for (const value of [
+  null,
+  [],
+  {},
+  { ...defaultVideoFit, enabled: "true" },
+  { ...defaultVideoFit, enabled: 1 },
+  { ...defaultVideoFit, scalePercent: 89 },
+  { ...defaultVideoFit, scalePercent: 111 },
+  { ...defaultVideoFit, scalePercent: 100.5 },
+  { ...defaultVideoFit, offsetXPercent: -11 },
+  { ...defaultVideoFit, offsetXPercent: 11 },
+  { ...defaultVideoFit, offsetXPercent: 0.5 },
+  { ...defaultVideoFit, offsetYPercent: 10.9 },
+  { ...defaultVideoFit, reference: "middle" },
+  { ...defaultVideoFit, reference: "CENTER" },
+  { ...defaultVideoFit, reference: "" },
+  { ...defaultVideoFit, reference: null },
+  { ...defaultVideoFit, extra: 1 },
+  Object.create(defaultVideoFit)
+]) assert.equal(isVideoFitSetup(value), false, `video fit rejects hostile/out-of-bounds ${JSON.stringify(value)}`);
+for (const invalid of [null, "center", true, 0, [], { ...defaultVideoFit, enabled: "off" }, { ...defaultVideoFit, scalePercent: 89 }, { ...defaultVideoFit, scalePercent: 111 }, { ...defaultVideoFit, scalePercent: 100.5 }, { ...defaultVideoFit, offsetXPercent: -11 }, { ...defaultVideoFit, offsetXPercent: 11 }, { ...defaultVideoFit, offsetYPercent: 10.5 }, { ...defaultVideoFit, reference: "edge" }, { ...defaultVideoFit, reference: "CENTER" }, { ...defaultVideoFit, reference: null }, { ...defaultVideoFit, enabled: null }, { ...defaultVideoFit, extra: 1 }]) assert.equal(normalizeVideoFit(invalid), null, `video fit normalization rejects hostile ${JSON.stringify(invalid)}`);
+for (const forwardCompat of [{ ...defaultVideoFit, reference: undefined }, { ...defaultVideoFit, scalePercent: undefined }]) {
+  const normalized = normalizeVideoFit(forwardCompat);
+  assert.deepEqual(normalized, defaultVideoFit, `explicit-undefined videoFit field normalizes to default: ${JSON.stringify(forwardCompat)}`);
+}
+const protoVideoFit = Object.create(defaultVideoFit);
+assert.deepEqual(normalizeVideoFit(protoVideoFit), defaultVideoFit, "prototype-inherited videoFit fields normalize as all defaults");
+assert.equal(normalizeVideoFit({ ...defaultVideoFit, reference: "near" }) === defaultVideoFit, false, "non-default valid record returns a fresh record, not the defaults object");
+const normalizedNear = normalizeVideoFit({ ...defaultVideoFit, reference: "near" });
+assert.deepEqual(normalizedNear, { enabled: false, scalePercent: 100, offsetXPercent: 0, offsetYPercent: 0, reference: "near" }, "normalization fills only the missing defaults");
+for (const valid of [{}, { scalePercent: 110 }, { enabled: true, scalePercent: 90, offsetXPercent: -10, offsetYPercent: 10, reference: "far" }]) {
+  const normalized = normalizeVideoFit(valid);
+  assert(isVideoFitSetup(normalized), `video fit normalization accepts ${JSON.stringify(valid)}`);
+}
+const videoFitRoundTrip = JSON.parse(JSON.stringify({ ...defaultVideoFit, enabled: true, scalePercent: 97, offsetXPercent: -4, offsetYPercent: 3, reference: "near" }));
+assert.deepEqual(normalizeVideoFit(videoFitRoundTrip), videoFitRoundTrip, "video fit exact round-trip through normalize/serialize");
 
 const sha1 = { schema: "aerobeat/content_hash", version: 1, algorithm: "sha1", value: "a".repeat(40) };
 const sha256 = { schema: "aerobeat/content_hash", version: 1, algorithm: "sha256", value: "b".repeat(64) };
