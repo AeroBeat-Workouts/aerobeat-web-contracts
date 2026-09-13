@@ -10,7 +10,7 @@ import {
 import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contracts.js";
 
 /**
- * @typedef {"flow_grid_v1" | "flow_colliders_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1"} AeroRulesetId
+ * @typedef {"flow_grid_v1" | "flow_colliders_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1" | "boxing_collider_v1"} AeroRulesetId
  */
 
 /**
@@ -50,7 +50,7 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  * percent fields are forward-compatible reads that normalize to 100; stored
  * records missing `videoFit` normalize to the all-defaults video fit.
  *
- * @typedef {Readonly<{schema:string,version:3,showGameplayGrid:boolean,guidanceBandMode:"off"|"song_beat_grid"|"target_arrivals",noseCameraParallaxEnabled:boolean,spawnDistanceOverride:Readonly<{enabled:boolean,normalSpawnDistanceWorldUnits:number}>,noseCameraRangeXWorldUnits:number,noseCameraRangeYWorldUnits:number,colliderRadius:number,enforceAuthoredDirection:boolean,directionToleranceDegrees:number,timingWindowMs:number,noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number,videoFit:AeroVideoFitSetup}>} AeroGameSetupSnapshotV3
+ * @typedef {Readonly<{schema:string,version:3,showGameplayGrid:boolean,guidanceBandMode:"off"|"song_beat_grid"|"target_arrivals",noseCameraParallaxEnabled:boolean,spawnDistanceOverride:Readonly<{enabled:boolean,normalSpawnDistanceWorldUnits:number}>,noseCameraRangeXWorldUnits:number,noseCameraRangeYWorldUnits:number,colliderRadius:number,enforceAuthoredDirection:boolean,directionToleranceDegrees:number,timingWindowMs:number,noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number,videoFit:AeroVideoFitSetup,topRowReachWU:number,bottomRowReachWU:number,guardCountMode:"collision"|"gesture"}>} AeroGameSetupSnapshotV3
  */
 
 /**
@@ -148,6 +148,112 @@ export function normalizeVideoFit(value) {
   }
   if (!isVideoFitSetup(normalized)) return null;
   return /** @type {AeroVideoFitSetup} */ (Object.freeze(normalized));
+}
+
+/**
+ * Boxing collider row-reach tuning, persisted in Game Setup v3. Each value is
+ * a raw world-unit fraction (NOT a percent) in [0,1] defaulting to 0.25: the
+ * fraction of world height the top/bottom collider row reaches beyond the
+ * pinned center row.
+ *
+ * @typedef {Readonly<{topRowReachWU:number,bottomRowReachWU:number}>} AeroRowReachSetup
+ */
+
+/** Exact reference anchors for the guard count mode enum. */
+export const aeroGuardCountModes = Object.freeze(["collision", "gesture"]);
+
+/**
+ * Exact bounds and defaults for the row-reach world-unit fraction knobs. Both
+ * values are raw world-unit fractions in the inclusive [0,1] range, not
+ * percents, and default to 0.25.
+ *
+ * @type {readonly (readonly ["topRowReachWU"|"bottomRowReachWU",number,number,number])[]}
+ */
+export const aeroRowReachBounds = Object.freeze([Object.freeze(["topRowReachWU", 0, 1, 0.25]), Object.freeze(["bottomRowReachWU", 0, 1, 0.25])]);
+
+/** Default for the guard count mode field, persisted in Game Setup v3. */
+export const defaultGuardCountMode = "collision";
+
+/**
+ * Pure mapping from a collider row index (0 = top, 1 = center, 2 = bottom) to
+ * world-space Y and athlete-space Y. The center row is pinned to the exact
+ * shoulder anchor (world Y 1, athlete Y 1.5) independent of reach values; the
+ * top/bottom rows extend outward by the configured reach fractions. At
+ * topRowReachWU = 1 and bottomRowReachWU = 1 the mapping equals the legacy
+ * full-grid mapping exactly (world Y 2/1/0, athlete Y 2.5/1.5/0.5).
+ *
+ * @param {0 | 1 | 2} row Collider row index.
+ * @param {Readonly<{topRowReachWU:number,bottomRowReachWU:number}>} reach Row reach fractions, each finite in [0,1].
+ * @returns {Readonly<{worldY:number,athleteY:number}>} Exact pinned row positions.
+ */
+export function boxingColliderRowY(row, reach) {
+  const isPlainReach = reach !== null && typeof reach === "object" && Object.getPrototypeOf(reach) === Object.prototype;
+  if (!isPlainReach) throw new TypeError("boxing_collider_row_reach_invalid");
+  const reachKeys = Reflect.ownKeys(reach);
+  if (reachKeys.length !== 2 || !reachKeys.includes("topRowReachWU") || !reachKeys.includes("bottomRowReachWU")) throw new TypeError("boxing_collider_row_reach_invalid");
+  const reachValue = (key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(reach, key);
+    const value = descriptor && "value" in descriptor ? descriptor.value : undefined;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) throw new TypeError("boxing_collider_row_reach_invalid");
+    return value;
+  };
+  const topRowReachWU = reachValue("topRowReachWU");
+  const bottomRowReachWU = reachValue("bottomRowReachWU");
+  if (row === 1) return Object.freeze({ worldY: 1, athleteY: 1.5 });
+  if (row === 0) return Object.freeze({ worldY: 1 + topRowReachWU, athleteY: 1.5 + topRowReachWU });
+  if (row === 2) return Object.freeze({ worldY: 1 - bottomRowReachWU, athleteY: 1.5 - bottomRowReachWU });
+  throw new TypeError("boxing_collider_row_invalid");
+}
+
+/**
+ * Exact own-keys type guard for the three 0.0.52 wave-0 Game Setup v3 fields:
+ * exactly `topRowReachWU`, `bottomRowReachWU`, and `guardCountMode`, with the
+ * row reach values bounded finite numbers in [0,1] and the exact guard count
+ * mode enum. Mirrors the per-class scale and video-fit rejection semantics.
+ *
+ * @param {unknown} value
+ * @returns {value is Readonly<{topRowReachWU:number,bottomRowReachWU:number,guardCountMode:"collision"|"gesture"}>}
+ */
+export function isBoxingColliderSetupFields(value) {
+  if (!hasExactKeys(value, ["topRowReachWU", "bottomRowReachWU", "guardCountMode"])) return false;
+  if (!isOneOf(value.guardCountMode, aeroGuardCountModes)) return false;
+  return aeroRowReachBounds.every(([key, minimum, maximum]) => {
+    const raw = value[key];
+    return typeof raw === "number" && Number.isFinite(raw) && Number(raw) >= minimum && Number(raw) <= maximum;
+  });
+}
+
+/**
+ * Forward-compatible read of the 0.0.52 wave-0 Game Setup v3 fields from a
+ * stored snapshot: a snapshot missing the row reach or guard count mode fields
+ * normalizes them to their defaults (0.25 / "collision"); a present-but-
+ * out-of-bounds, non-finite, or wrong-shape field rejects with the existing
+ * error pattern.
+ *
+ * @param {unknown} snapshot
+ * @returns {Readonly<{topRowReachWU:number,bottomRowReachWU:number,guardCountMode:"collision"|"gesture"}> | null}
+ */
+export function normalizeBoxingColliderSetupFields(snapshot) {
+  if (!isRecord(snapshot)) return null;
+  const record = /** @type {Record<string, unknown>} */ (snapshot);
+  const ownValue = (key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(record, key);
+    if (descriptor === undefined || !("value" in descriptor) || descriptor.value === undefined) return undefined;
+    return descriptor.value;
+  };
+  const ownGuard = ownValue("guardCountMode");
+  if (ownGuard !== undefined && !isOneOf(ownGuard, aeroGuardCountModes)) return null;
+  const normalized = /** @type {Record<string, unknown>} */ ({ guardCountMode: ownGuard === undefined ? "collision" : ownGuard });
+  for (const [key, minimum, maximum, fallback] of aeroRowReachBounds) {
+    const raw = ownValue(key);
+    if (raw !== undefined) {
+      if (typeof raw !== "number" || !Number.isFinite(raw) || Number(raw) < minimum || Number(raw) > maximum) return null;
+      normalized[key] = Number(raw);
+    } else {
+      normalized[key] = fallback;
+    }
+  }
+  return Object.freeze(normalized);
 }
 
 /**
@@ -318,7 +424,8 @@ export const rulesetIds = Object.freeze([
   "flow_grid_v1",
   "flow_colliders_v1",
   "boxing_semantic_track_v1",
-  "boxing_spatial_grid_v1"
+  "boxing_spatial_grid_v1",
+  "boxing_collider_v1"
 ]);
 
 /**

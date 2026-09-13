@@ -3,7 +3,7 @@
 import { hasExactKeys } from "./contract-guards.js";
 
 /** Maximum normalized obstacles accepted in one chart. */
-export const maximumObstaclesPerChart = 128;
+export const maximumObstaclesPerChart = 512;
 
 /**
  * Exact provider-coordinate evidence retained beside normalized gameplay geometry.

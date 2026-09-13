@@ -152,12 +152,39 @@ export const readinessStates = Object.freeze([
 
 export const calibrationDefaults = Object.freeze({
   requiredConfidence: 0.5,
-  holdDurationMs: 4000,
-  cooldownDurationMs: 4000,
-  trackingLossPauseMs: 500,
+  holdDurationMs: 2000,
+  cooldownDurationMs: 2000,
+  trackingLossPauseMs: 750,
   wristElbowVerticalRatio: 0.35,
   minimumElbowAngleDeg: 130
 });
+
+/**
+ * Exact loss-decision anchor set: the three anchors whose measured visibility
+ * and confidence decide tracking-loss pause and partial auto-recovery.
+ *
+ * @type {readonly AeroUpperBodyAnchorName[]}
+ */
+export const lossDecisionAnchorNames = Object.freeze([
+  "nose",
+  "left_wrist",
+  "right_wrist"
+]);
+
+/**
+ * Consecutive-failure hysteresis for the tracking-loss window: the window
+ * latches only after this many CONSECUTIVE failed measured samples of the
+ * loss-decision anchors; any passing measured sample resets the counter.
+ */
+export const trackingLossHysteresisConsecutiveFails = 3;
+
+/**
+ * Partial auto-recovery hold: the same three loss-decision anchors visible and
+ * stable for at least this many milliseconds of measured time clears
+ * `freshCalibrationRequired` without recalibrating bounds. Full T-pose
+ * remains the fallback for invalidation.
+ */
+export const recoveryHoldMs = 300;
 
 /**
  * @param {unknown} value

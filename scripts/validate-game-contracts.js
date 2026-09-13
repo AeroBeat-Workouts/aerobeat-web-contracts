@@ -11,7 +11,13 @@ import {
   isVideoFitSetup,
   isVisualScaleSetup,
   normalizeVideoFit,
+  aeroGuardCountModes,
+  aeroRowReachBounds,
   boxingActions,
+  boxingColliderRowY,
+  defaultGuardCountMode,
+  isBoxingColliderSetupFields,
+  normalizeBoxingColliderSetupFields,
   contentImportJobStates,
   conversionRecipeIds,
   defaultAssetPolicy,
@@ -125,11 +131,97 @@ assert.equal(serviceIds.bodyGrid, "aero.input.body-grid");
 assert.equal(serviceIds.beatSaverVendor, "aero.vendor.beatsaver");
 assert.equal(serviceIds.contentAuthoring, "aero.content.authoring");
 assert.equal(eventNames.contentImportChanged, "aero:content:import-changed");
-assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_colliders_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1"]);
+assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_colliders_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1", "boxing_collider_v1"]);
 for (const rulesetId of rulesetIds) assert.equal(isRulesetId(rulesetId), true);
-for (const invalidRulesetId of ["flow_colliders", "FLOW_COLLIDERS_V1", "flow-colliders-v1", " flow_colliders_v1", null]) {
+for (const invalidRulesetId of ["flow_colliders", "FLOW_COLLIDERS_V1", "flow-colliders-v1", " flow_colliders_v1", "boxing_collider", "BOXING_COLLIDER_V1", null]) {
   assert.equal(isRulesetId(invalidRulesetId), false, "ruleset aliases and non-string values reject");
 }
+
+// 0.0.52 wave-0 Boxing collider row mapping: exact values at the reach grid,
+// center-row pinning, the legacy full-grid invariant at reach 1.0, hostile
+// inputs, and determinism.
+assert.deepEqual(aeroRowReachBounds, [["topRowReachWU", 0, 1, 0.25], ["bottomRowReachWU", 0, 1, 0.25]]);
+assert(Object.isFrozen(aeroRowReachBounds) && Object.isFrozen(aeroGuardCountModes) && Object.isFrozen(boxingColliderRowY(1, { topRowReachWU: 0, bottomRowReachWU: 0 })));
+for (const topRowReachWU of [0, 0.25, 0.5, 1.0]) {
+  for (const bottomRowReachWU of [0, 0.25, 0.5, 1.0]) {
+    const reach = { topRowReachWU, bottomRowReachWU };
+    assert.deepEqual(boxingColliderRowY(0, reach), { worldY: 1 + topRowReachWU, athleteY: 1.5 + topRowReachWU }, `top row maps at reach ${topRowReachWU}`);
+    assert.deepEqual(boxingColliderRowY(1, reach), { worldY: 1, athleteY: 1.5 }, "center row pins to the exact shoulder anchor regardless of reach");
+    assert.deepEqual(boxingColliderRowY(2, reach), { worldY: 1 - bottomRowReachWU, athleteY: 1.5 - bottomRowReachWU }, `bottom row maps at reach ${bottomRowReachWU}`);
+  }
+}
+for (const row of [0, 1, 2]) assert.deepEqual(boxingColliderRowY(row, { topRowReachWU: 1, bottomRowReachWU: 1 }), [{ worldY: 2, athleteY: 2.5 }, { worldY: 1, athleteY: 1.5 }, { worldY: 0, athleteY: 0.5 }][row], "reach 1.0 reproduces the legacy full-grid mapping exactly");
+for (const hostileRow of [3, -1, 0.5, "0", null, undefined, NaN]) {
+  assert.throws(() => boxingColliderRowY(hostileRow, { topRowReachWU: 0.25, bottomRowReachWU: 0.25 }), TypeError, `hostile row ${String(hostileRow)} rejects`);
+}
+for (const hostileReach of [
+  null,
+  undefined,
+  [],
+  "",
+  0,
+  { topRowReachWU: 2, bottomRowReachWU: 0.25 },
+  { topRowReachWU: -0.1, bottomRowReachWU: 0.25 },
+  { topRowReachWU: 1.0001, bottomRowReachWU: 0.25 },
+  { topRowReachWU: 0.25, bottomRowReachWU: 1.0001 },
+  { topRowReachWU: NaN, bottomRowReachWU: 0.25 },
+  { topRowReachWU: 0.25, bottomRowReachWU: Number.POSITIVE_INFINITY },
+  { topRowReachWU: "0.25", bottomRowReachWU: 0.25 },
+  { topRowReachWU: undefined, bottomRowReachWU: 0.25 },
+  { topRowReachWU: 0.25 },
+  { topRowReachWU: 0.25, bottomRowReachWU: 0.25, extra: 1 },
+  Object.create(null),
+  new (class Reach {}) ()
+]) {
+  assert.throws(() => boxingColliderRowY(0, hostileReach), TypeError, `hostile reach ${JSON.stringify(hostileReach)} rejects`);
+}
+const repeatedTop = boxingColliderRowY(0, { topRowReachWU: 0.25, bottomRowReachWU: 0.5 });
+assert.deepEqual(boxingColliderRowY(0, { topRowReachWU: 0.25, bottomRowReachWU: 0.5 }), repeatedTop, "mapping is deterministic for identical inputs");
+
+// 0.0.52 wave-0 Game Setup v3 Boxing fields: bounds, exact own-keys guard,
+// forward-compat normalization, hostile rejection, and round-trip.
+assert.deepEqual(aeroGuardCountModes, ["collision", "gesture"]);
+assert.equal(defaultGuardCountMode, "collision");
+const exactSetupFields = { topRowReachWU: 0.25, bottomRowReachWU: 0.25, guardCountMode: "collision" };
+for (const value of [exactSetupFields, { topRowReachWU: 0, bottomRowReachWU: 1, guardCountMode: "gesture" }]) assert.equal(isBoxingColliderSetupFields(value), true, `setup fields accept ${JSON.stringify(value)}`);
+for (const value of [
+  {},
+  null,
+  [],
+  { ...exactSetupFields, extra: 1 },
+  { ...exactSetupFields, topRowReachWU: 1.0001 },
+  { ...exactSetupFields, topRowReachWU: -0.1 },
+  { ...exactSetupFields, bottomRowReachWU: 1.5 },
+  { topRowReachWU: 0.25, guardCountMode: "collision" },
+  { bottomRowReachWU: 0.25, guardCountMode: "collision" },
+  { topRowReachWU: 0.25, bottomRowReachWU: 0.25 },
+  { topRowReachWU: "0.25", bottomRowReachWU: 0.25, guardCountMode: "collision" },
+  { ...exactSetupFields, topRowReachWU: Number.NaN },
+  { ...exactSetupFields, guardCountMode: "collision " },
+  { ...exactSetupFields, guardCountMode: "GESTURE" },
+  { ...exactSetupFields, guardCountMode: null },
+  Object.create(exactSetupFields),
+  new (class SetupFields {}) ()
+]) assert.equal(isBoxingColliderSetupFields(value), false, `setup fields reject hostile/out-of-bounds ${JSON.stringify(value)}`);
+assert.deepEqual(normalizeBoxingColliderSetupFields({}), exactSetupFields, "v3 snapshot missing the wave-0 fields normalizes to defaults");
+assert.deepEqual(normalizeBoxingColliderSetupFields(Object.assign(Object.create(null), { topRowReachWU: 1, bottomRowReachWU: 0.5, guardCountMode: "gesture" })), { topRowReachWU: 1, bottomRowReachWU: 0.5, guardCountMode: "gesture" }, "null-prototype stored v3 snapshots normalize field-by-field");
+assert.deepEqual(normalizeBoxingColliderSetupFields({ ...exactSetupFields, unrelated: true, guardCountMode: "gesture" }), { topRowReachWU: 0.25, bottomRowReachWU: 0.25, guardCountMode: "gesture" }, "unrelated v3 fields do not disturb the wave-0 field read");
+assert.deepEqual(normalizeBoxingColliderSetupFields({ topRowReachWU: 1, bottomRowReachWU: 0.5 }), { topRowReachWU: 1, bottomRowReachWU: 0.5, guardCountMode: "collision" }, "partial wave-0 fields fill the remaining defaults");
+for (const hostileSnapshot of [
+  null,
+  [],
+  "collision",
+  { topRowReachWU: 1.0001, bottomRowReachWU: 0.25, guardCountMode: "collision" },
+  { topRowReachWU: -0.1, bottomRowReachWU: 0.25, guardCountMode: "collision" },
+  { topRowReachWU: 0.25, bottomRowReachWU: "0.25", guardCountMode: "collision" },
+  { topRowReachWU: Number.NaN, bottomRowReachWU: 0.25, guardCountMode: "collision" },
+  { topRowReachWU: 0.25, bottomRowReachWU: 0.25, guardCountMode: "gesture " },
+  { topRowReachWU: 0.25, bottomRowReachWU: 0.25, guardCountMode: "Gesture" },
+  { topRowReachWU: 0.25, bottomRowReachWU: 0.25, guardCountMode: null }
+]) assert.equal(normalizeBoxingColliderSetupFields(hostileSnapshot), null, `wave-0 normalization rejects hostile ${JSON.stringify(hostileSnapshot)}`);
+const setupRoundTrip = JSON.parse(JSON.stringify({ topRowReachWU: 1, bottomRowReachWU: 0.5, guardCountMode: "gesture" }));
+assert.deepEqual(normalizeBoxingColliderSetupFields(setupRoundTrip), setupRoundTrip, "wave-0 setup fields exact round-trip through normalize/serialize");
+assert(Object.isFrozen(normalizeBoxingColliderSetupFields(exactSetupFields)), "normalized wave-0 setup fields are frozen");
 assert.deepEqual(obstacleResults, ["contact", "avoided", "unevaluated_tracking"]);
 assert.deepEqual(conversionRecipeIds, ["row_family_balanced_height_v1", "cut_family_source_height_v1"]);
 assert.equal(mapModifierIds.includes("crossed_guard"), true);

@@ -20,7 +20,10 @@ import {
   isBodyGridAnchorSnapshot,
   isBodyGridCellEntry,
   isCalibrationSnapshot,
+  lossDecisionAnchorNames,
   normalizedPointToGridCell,
+  recoveryHoldMs,
+  trackingLossHysteresisConsecutiveFails,
   upperBodyAnchorNames
 } from "../src/index.js";
 
@@ -179,11 +182,22 @@ assert.deepEqual(upperBodyAnchorNames, [
   "right_wrist"
 ]);
 assert.equal(calibrationDefaults.requiredConfidence, 0.5);
-assert.equal(calibrationDefaults.holdDurationMs, 4000);
-assert.equal(calibrationDefaults.cooldownDurationMs, 4000);
-assert.equal(calibrationDefaults.trackingLossPauseMs, 500);
+assert.equal(calibrationDefaults.holdDurationMs, 2000);
+assert.equal(calibrationDefaults.cooldownDurationMs, 2000);
+assert.equal(calibrationDefaults.trackingLossPauseMs, 750);
 assert.equal(calibrationDefaults.wristElbowVerticalRatio, 0.35);
 assert.equal(calibrationDefaults.minimumElbowAngleDeg, 130);
+
+// 0.0.52 wave-0 tracking-loss redesign constants: frozen, exact values, and
+// correct loss-decision anchor membership.
+assert.deepEqual(lossDecisionAnchorNames, ["nose", "left_wrist", "right_wrist"]);
+assert(Object.isFrozen(lossDecisionAnchorNames) && Object.isFrozen(calibrationDefaults));
+for (const lossAnchor of lossDecisionAnchorNames) assert.equal(upperBodyAnchorNames.includes(lossAnchor), true, `${lossAnchor} is a canonical upper-body anchor`);
+assert.equal(new Set(lossDecisionAnchorNames).size, 3, "loss-decision anchor set has exactly three distinct anchors");
+assert.equal(trackingLossHysteresisConsecutiveFails, 3);
+assert.equal(recoveryHoldMs, 300);
+assert.equal(typeof trackingLossHysteresisConsecutiveFails, "number");
+assert.equal(typeof recoveryHoldMs, "number");
 
 const sourceCrouchWall = {
   schema: "aerobeat/obstacle_source_geometry", version: 1,
