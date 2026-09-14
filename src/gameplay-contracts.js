@@ -166,10 +166,10 @@ export const aeroGuardCountModes = Object.freeze(["collision", "gesture"]);
  * Exact bounds and defaults for the row-reach world-unit fraction knobs. Both
  * values are raw world-unit fractions in the inclusive [0,1] range, not
  * percents, and default to 0.25.
- *
- * @type {readonly (readonly ["topRowReachWU"|"bottomRowReachWU",number,number,number])[]}
  */
 export const aeroRowReachBounds = Object.freeze([Object.freeze(["topRowReachWU", 0, 1, 0.25]), Object.freeze(["bottomRowReachWU", 0, 1, 0.25])]);
+
+const rowReachBoundsTuples = /** @type {readonly (readonly ["topRowReachWU"|"bottomRowReachWU",number,number,number])[]} */ (aeroRowReachBounds);
 
 /** Default for the guard count mode field, persisted in Game Setup v3. */
 export const defaultGuardCountMode = "collision";
@@ -217,7 +217,7 @@ export function boxingColliderRowY(row, reach) {
 export function isBoxingColliderSetupFields(value) {
   if (!hasExactKeys(value, ["topRowReachWU", "bottomRowReachWU", "guardCountMode"])) return false;
   if (!isOneOf(value.guardCountMode, aeroGuardCountModes)) return false;
-  return aeroRowReachBounds.every(([key, minimum, maximum]) => {
+  return rowReachBoundsTuples.every(([key, minimum, maximum]) => {
     const raw = value[key];
     return typeof raw === "number" && Number.isFinite(raw) && Number(raw) >= minimum && Number(raw) <= maximum;
   });
@@ -243,8 +243,11 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
   };
   const ownGuard = ownValue("guardCountMode");
   if (ownGuard !== undefined && !isOneOf(ownGuard, aeroGuardCountModes)) return null;
-  const normalized = /** @type {Record<string, unknown>} */ ({ guardCountMode: ownGuard === undefined ? "collision" : ownGuard });
-  for (const [key, minimum, maximum, fallback] of aeroRowReachBounds) {
+  const normalized = /** @type {{topRowReachWU:number,bottomRowReachWU:number,guardCountMode:"collision"|"gesture"}} */ ({});
+  // Validated against aeroGuardCountModes above; cast because the isOneOf
+  // predicate infers the string constraint (not the literal union) here.
+  normalized.guardCountMode = ownGuard === undefined ? "collision" : /** @type {"collision" | "gesture"} */ (ownGuard);
+  for (const [key, minimum, maximum, fallback] of rowReachBoundsTuples) {
     const raw = ownValue(key);
     if (raw !== undefined) {
       if (typeof raw !== "number" || !Number.isFinite(raw) || Number(raw) < minimum || Number(raw) > maximum) return null;
