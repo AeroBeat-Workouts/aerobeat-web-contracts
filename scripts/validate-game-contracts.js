@@ -3,11 +3,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  aeroGameSetupHazardVignetteFields,
   aeroGameSetupIdentity,
   aeroGameSetupVisibilityFields,
+  aeroHazardVignetteBounds,
   aeroVisualScaleBounds,
+  isGameSetupHazardVignetteFields,
   isGameSetupVisibilityFields,
   isVisualScaleSetup,
+  normalizeGameSetupHazardVignetteFields,
   normalizeGameSetupVisibilityFields,
   aeroGuardCountModes,
   aeroRowReachBounds,
@@ -108,6 +112,78 @@ for (const hostileSnapshot of [
 const visibilityRoundTrip = JSON.parse(JSON.stringify({ visibleToleranceRange: true, visibleColliderRadius: true }));
 assert.deepEqual(normalizeGameSetupVisibilityFields(visibilityRoundTrip), visibilityRoundTrip, "0.0.53 visibility toggles exact round-trip through normalize/serialize");
 assert(Object.isFrozen(normalizeGameSetupVisibilityFields(exactVisibility)), "normalized 0.0.53 visibility toggles are frozen");
+
+// 0.0.54 wave-0 Game Setup v3 hazard vignette tuning fields: frozen key list,
+// bounds and defaults, exact own-keys guard, forward-compat missing-fields
+// defaults, inclusive bound acceptance, out-of-bounds / non-number rejection,
+// legacy key drop, and round-trip.
+assert.deepEqual(aeroGameSetupHazardVignetteFields, ["hazardVignetteIntensity", "hazardVignettePulseHz", "hazardVignettePulseDepth", "hazardVignetteRampMs", "hazardVignetteDecayMs"]);
+assert(Object.isFrozen(aeroGameSetupHazardVignetteFields));
+assert.deepEqual(aeroHazardVignetteBounds, [["hazardVignetteIntensity", 0, 1, 0.6], ["hazardVignettePulseHz", 0, 5, 2], ["hazardVignettePulseDepth", 0, 1, 0.35], ["hazardVignetteRampMs", 0, 1000, 150], ["hazardVignetteDecayMs", 0, 3000, 400]]);
+assert(Object.isFrozen(aeroHazardVignetteBounds));
+const exactHazardVignette = { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 };
+assert.deepEqual(normalizeGameSetupHazardVignetteFields({}), exactHazardVignette, "v3 snapshot missing the 0.0.54 hazard vignette fields normalizes to exact defaults");
+// Forward-compat: an OLD (pre-0.0.54) stored snapshot lacking the fields
+// normalizes cleanly to the defaults without rejection.
+const legacyPre0054Snapshot = JSON.parse(JSON.stringify({ schema: "aerobeat/game_setup", version: 3, showGameplayGrid: true, guidanceBandMode: "song_beat_grid", noseCameraParallaxEnabled: true, spawnDistanceOverride: { enabled: false, normalSpawnDistanceWorldUnits: 2.6 }, noseCameraRangeXWorldUnits: 0.4, noseCameraRangeYWorldUnits: 0.4, colliderRadius: 0.2, enforceAuthoredDirection: false, directionToleranceDegrees: 15, timingWindowMs: 180, noteScalePercent: 100, obstacleScalePercent: 100, bombScalePercent: 100, markerScalePercent: 100, visibleToleranceRange: true, visibleColliderRadius: false, topRowReachWU: 0.25, bottomRowReachWU: 0.25, guardCountMode: "collision" }));
+assert.deepEqual(normalizeGameSetupHazardVignetteFields(legacyPre0054Snapshot), exactHazardVignette, "pre-0.0.54 stored snapshot without hazard vignette fields normalizes cleanly to defaults");
+assert.deepEqual(normalizeGameSetupHazardVignetteFields({ hazardVignetteIntensity: 0.6 }), { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 }, "partial hazard vignette fields fill the remaining defaults");
+assert.deepEqual(normalizeGameSetupHazardVignetteFields(Object.assign(Object.create(null), exactHazardVignette)), exactHazardVignette, "null-prototype stored v3 snapshots normalize hazard vignette field-by-field");
+assert.deepEqual(normalizeGameSetupHazardVignetteFields({ ...exactHazardVignette, videoFit: { enabled: true }, unrelated: true }), exactHazardVignette, "removed legacy and unrelated keys are dropped, not rejected");
+const inBoundsRoundTrip = JSON.parse(JSON.stringify({ hazardVignetteIntensity: 0.25, hazardVignettePulseHz: 4.5, hazardVignettePulseDepth: 0.9, hazardVignetteRampMs: 250, hazardVignetteDecayMs: 1200 }));
+assert.deepEqual(normalizeGameSetupHazardVignetteFields(inBoundsRoundTrip), inBoundsRoundTrip, "in-bounds hazard vignette values exact round-trip through normalize/serialize");
+assert(Object.isFrozen(normalizeGameSetupHazardVignetteFields(exactHazardVignette)), "normalized hazard vignette fields are frozen");
+// Every bound is inclusive: each minimum and maximum accepts exactly.
+for (const [key, minimum, maximum] of aeroHazardVignetteBounds) {
+  const atMin = { ...exactHazardVignette, [key]: minimum };
+  const atMax = { ...exactHazardVignette, [key]: maximum };
+  assert.equal(isGameSetupHazardVignetteFields(atMin), true, `${key} accepts its inclusive minimum ${minimum}`);
+  assert.equal(isGameSetupHazardVignetteFields(atMax), true, `${key} accepts its inclusive maximum ${maximum}`);
+  assert.deepEqual(normalizeGameSetupHazardVignetteFields(atMin), atMin, `${key} at minimum round-trips`);
+  assert.deepEqual(normalizeGameSetupHazardVignetteFields(atMax), atMax, `${key} at maximum round-trips`);
+}
+for (const value of [
+  {},
+  null,
+  [],
+  "0.6",
+  { hazardVignetteIntensity: 0.6 },
+  { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: 2 },
+  { ...exactHazardVignette, hazardVignetteIntensity: 1.000001 },
+  { ...exactHazardVignette, hazardVignetteIntensity: -1 },
+  { ...exactHazardVignette, hazardVignettePulseHz: 5.5 },
+  { ...exactHazardVignette, hazardVignettePulseHz: -0.001 },
+  { ...exactHazardVignette, hazardVignettePulseDepth: 1.000001 },
+  { ...exactHazardVignette, hazardVignettePulseDepth: -0.1 },
+  { ...exactHazardVignette, hazardVignetteRampMs: 1000.5 },
+  { ...exactHazardVignette, hazardVignetteRampMs: -1 },
+  { ...exactHazardVignette, hazardVignetteDecayMs: 3001 },
+  { ...exactHazardVignette, hazardVignetteDecayMs: -0.5 },
+  { ...exactHazardVignette, hazardVignetteIntensity: "0.6" },
+  { ...exactHazardVignette, hazardVignettePulseHz: true },
+  { ...exactHazardVignette, hazardVignettePulseDepth: null },
+  { ...exactHazardVignette, hazardVignetteRampMs: Number.NaN },
+  { ...exactHazardVignette, hazardVignetteDecayMs: Number.POSITIVE_INFINITY },
+  { ...exactHazardVignette, extra: 1 },
+  Object.create(exactHazardVignette),
+  new (class HazardVignetteFields {}) ()
+]) assert.equal(isGameSetupHazardVignetteFields(value), false, `hazard vignette fields reject hostile/out-of-bounds ${JSON.stringify(value)}`);
+for (const hostileSnapshot of [
+  null,
+  [],
+  true,
+  { hazardVignetteIntensity: 1.000001, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: -1, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: 5.5, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 1000.5, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 3001 },
+  { hazardVignetteIntensity: "0.6", hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: true, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: null, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: Number.NaN, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: Number.POSITIVE_INFINITY, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: 400 },
+  { hazardVignetteIntensity: 0.6, hazardVignettePulseHz: 2, hazardVignettePulseDepth: 0.35, hazardVignetteRampMs: 150, hazardVignetteDecayMs: Number.NEGATIVE_INFINITY }
+]) assert.equal(normalizeGameSetupHazardVignetteFields(hostileSnapshot), null, `0.0.54 normalization rejects hostile ${JSON.stringify(hostileSnapshot)}`);
 
 const sha1 = { schema: "aerobeat/content_hash", version: 1, algorithm: "sha1", value: "a".repeat(40) };
 const sha256 = { schema: "aerobeat/content_hash", version: 1, algorithm: "sha256", value: "b".repeat(64) };

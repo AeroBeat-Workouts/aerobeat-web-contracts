@@ -36,19 +36,21 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  * Persisted Game Setup v3 snapshot. Stored records missing the four scale
  * percent fields are forward-compatible reads that normalize to 100; stored
  * records missing the two visibility toggles normalize to false; stored
- * records from 0.0.51/0.0.52 carrying the removed `videoFit` key normalize
- * with the key dropped.
+ * records missing the five 0.0.54 hazard vignette tuning fields normalize to
+ * their defaults; stored records from 0.0.51/0.0.52 carrying the removed
+ * `videoFit` key normalize with the key dropped.
  *
- * @typedef {Readonly<{schema:string,version:3,showGameplayGrid:boolean,guidanceBandMode:"off"|"song_beat_grid"|"target_arrivals",noseCameraParallaxEnabled:boolean,spawnDistanceOverride:Readonly<{enabled:boolean,normalSpawnDistanceWorldUnits:number}>,noseCameraRangeXWorldUnits:number,noseCameraRangeYWorldUnits:number,colliderRadius:number,enforceAuthoredDirection:boolean,directionToleranceDegrees:number,timingWindowMs:number,noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number,visibleToleranceRange:boolean,visibleColliderRadius:boolean,topRowReachWU:number,bottomRowReachWU:number,guardCountMode:"collision"|"gesture"}>} AeroGameSetupSnapshotV3
+ * @typedef {Readonly<{schema:string,version:3,showGameplayGrid:boolean,guidanceBandMode:"off"|"song_beat_grid"|"target_arrivals",noseCameraParallaxEnabled:boolean,spawnDistanceOverride:Readonly<{enabled:boolean,normalSpawnDistanceWorldUnits:number}>,noseCameraRangeXWorldUnits:number,noseCameraRangeYWorldUnits:number,colliderRadius:number,enforceAuthoredDirection:boolean,directionToleranceDegrees:number,timingWindowMs:number,noteScalePercent:number,obstacleScalePercent:number,bombScalePercent:number,markerScalePercent:number,visibleToleranceRange:boolean,visibleColliderRadius:boolean,topRowReachWU:number,bottomRowReachWU:number,guardCountMode:"collision"|"gesture",hazardVignetteIntensity:number,hazardVignettePulseHz:number,hazardVignettePulseDepth:number,hazardVignetteRampMs:number,hazardVignetteDecayMs:number}>} AeroGameSetupSnapshotV3
  */
 
 /**
  * Canonical persistence identity for Game Setup v3. The four per-class visual
- * scale percentages (each 10-200 integer, default 100) and the two debug
- * visibility toggles (both default false) extend the timing and collider
- * setup; stored records without them read as the defaults. The 0.0.53
- * successor removed the 0.0.51/0.0.52 videoFit record; stored records that
- * still carry a `videoFit` key read with the key dropped.
+ * scale percentages (each 10-200 integer, default 100), the two debug
+ * visibility toggles (both default false), and the five 0.0.54 hazard
+ * vignette tuning knobs (bounded numbers with per-field defaults) extend the
+ * timing and collider setup; stored records without them read as the
+ * defaults. The 0.0.53 successor removed the 0.0.51/0.0.52 videoFit record;
+ * stored records that still carry a `videoFit` key read with the key dropped.
  *
  * @type {Readonly<{schema:string,version:3,key:string}>}
  */
@@ -112,6 +114,74 @@ export function normalizeGameSetupVisibilityFields(snapshot) {
       normalized[key] = raw;
     } else {
       return null;
+    }
+  }
+  return Object.freeze(normalized);
+}
+
+/**
+ * Hazard-contact vignette presentation tuning, persisted in Game Setup v3.
+ * Each value is a bounded finite number: master intensity in [0,1], pulse
+ * frequency in [0,5] Hz, pulse depth in [0,1], ramp-in duration in [0,1000]
+ * ms, and release decay duration in [0,3000] ms. Presentation-only; the
+ * renderer derives the per-frame vignette as a pure function of these
+ * parameters and the coordinator's hazard-contact state.
+ *
+ * @typedef {Readonly<{hazardVignetteIntensity:number,hazardVignettePulseHz:number,hazardVignettePulseDepth:number,hazardVignetteRampMs:number,hazardVignetteDecayMs:number}>} AeroHazardVignetteSetup
+ */
+
+/** 0.0.54 wave-0 hazard vignette tuning fields, persisted in Game Setup v3. */
+export const aeroGameSetupHazardVignetteFields = Object.freeze(["hazardVignetteIntensity", "hazardVignettePulseHz", "hazardVignettePulseDepth", "hazardVignetteRampMs", "hazardVignetteDecayMs"]);
+
+/** Exact bounds and defaults for the five hazard vignette tuning knobs. */
+export const aeroHazardVignetteBounds = Object.freeze([Object.freeze(["hazardVignetteIntensity", 0, 1, 0.6]), Object.freeze(["hazardVignettePulseHz", 0, 5, 2]), Object.freeze(["hazardVignettePulseDepth", 0, 1, 0.35]), Object.freeze(["hazardVignetteRampMs", 0, 1000, 150]), Object.freeze(["hazardVignetteDecayMs", 0, 3000, 400])]);
+
+const hazardVignetteBoundsTuples = /** @type {readonly (readonly ["hazardVignetteIntensity"|"hazardVignettePulseHz"|"hazardVignettePulseDepth"|"hazardVignetteRampMs"|"hazardVignetteDecayMs",number,number,number])[]} */ (aeroHazardVignetteBounds);
+
+/**
+ * Exact own-keys type guard for the five 0.0.54 wave-0 Game Setup v3 hazard
+ * vignette tuning fields: exactly the five `hazardVignette*` keys, each a
+ * finite number within its inclusive bounds. Mirrors the per-class scale and
+ * row-reach rejection semantics.
+ *
+ * @param {unknown} value
+ * @returns {value is AeroHazardVignetteSetup}
+ */
+export function isGameSetupHazardVignetteFields(value) {
+  if (!hasExactKeys(value, aeroGameSetupHazardVignetteFields)) return false;
+  return hazardVignetteBoundsTuples.every(([key, minimum, maximum]) => {
+    const raw = value[key];
+    return typeof raw === "number" && Number.isFinite(raw) && Number(raw) >= minimum && Number(raw) <= maximum;
+  });
+}
+
+/**
+ * Forward-compatible read of the 0.0.54 wave-0 Game Setup v3 hazard vignette
+ * tuning fields from a stored snapshot: a snapshot missing any field
+ * normalizes it to its default; a present-but-out-of-bounds, non-finite, or
+ * non-number field rejects with the existing error pattern. Stored records
+ * from 0.0.51-0.0.53 lacking the fields, and any record carrying removed
+ * legacy keys, are read with the unknown keys dropped, never rejected.
+ *
+ * @param {unknown} snapshot
+ * @returns {AeroHazardVignetteSetup | null}
+ */
+export function normalizeGameSetupHazardVignetteFields(snapshot) {
+  if (!isRecord(snapshot)) return null;
+  const record = /** @type {Record<string, unknown>} */ (snapshot);
+  const ownValue = (key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(record, key);
+    if (descriptor === undefined || !("value" in descriptor) || descriptor.value === undefined) return undefined;
+    return descriptor.value;
+  };
+  const normalized = /** @type {{hazardVignetteIntensity:number,hazardVignettePulseHz:number,hazardVignettePulseDepth:number,hazardVignetteRampMs:number,hazardVignetteDecayMs:number}} */ ({});
+  for (const [key, minimum, maximum, fallback] of hazardVignetteBoundsTuples) {
+    const raw = ownValue(key);
+    if (raw !== undefined) {
+      if (typeof raw !== "number" || !Number.isFinite(raw) || Number(raw) < minimum || Number(raw) > maximum) return null;
+      normalized[key] = Number(raw);
+    } else {
+      normalized[key] = fallback;
     }
   }
   return Object.freeze(normalized);
