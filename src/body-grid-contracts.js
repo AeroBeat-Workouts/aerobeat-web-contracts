@@ -290,12 +290,12 @@ export function isCalibrationSnapshot(value) {
  * @returns {value is AeroTrackingSafetySnapshot}
  */
 export function isTrackingSafetySnapshot(value) {
+  if (!isRecord(value)) return false;
   const degradedAnchors = value.degradedAnchors;
   const degradedValid = Array.isArray(degradedAnchors) &&
     degradedAnchors.every((name) => isOneOf(name, lossDecisionAnchorNames)) &&
     new Set(degradedAnchors).size === degradedAnchors.length;
-  return isRecord(value) &&
-    value.schema === "aerobeat/tracking_safety_snapshot" &&
+  return value.schema === "aerobeat/tracking_safety_snapshot" &&
     value.version === 1 &&
     isNonNegativeFiniteNumber(value.timestampMs) &&
     isNonNegativeFiniteNumber(value.lossThresholdMs) &&
