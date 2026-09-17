@@ -5,6 +5,7 @@ import {
   isNonEmptyString,
   isNonNegativeFiniteNumber,
   isOneOf,
+  isPositiveInteger,
   isRecord
 } from "./contract-guards.js";
 import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contracts.js";
@@ -334,16 +335,53 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  */
 
 /**
+ * @typedef {"measured" | "frozen"} AeroGameplayEvidenceProvenance
+ */
+
+/**
+ * Gameplay evidence frame.
+ *
+ * A `measured` frame carries the data of one real source frame; such frames
+ * must keep the strict monotonic measuredSourceFrameId /
+ * measurementTimestampMs contracts.
+ *
+ * A `frozen` frame is the HELDPUBLISHED form of the last measured frame
+ * while the input service's anchors are frozen (tracking loss while
+ * calibrated, `AeroTrackingSafetySnapshot.anchorsFrozen`). It is scoring
+ * eligible, but it is never a re-stamped measured frame:
+ *  - measuredSourceFrameId and measurementTimestampMs repeat the original
+ *    last measured frame's values unchanged, so measured-frame
+ *    monotonicity/freshness checks keep working on the measured stream;
+ *  - anchors repeat the held frame's anchor snapshots byte-identically
+ *    (positions held at the last measurement);
+ *  - activeBoxingActions and entries are empty (no new semantic
+ *    observations or cell-entry motion evidence is minted while frozen;
+ *    only held positions are exposed, so only point-contact scoring can
+ *    fire off a frozen frame);
+ *  - frozenTickId is present and is the per-tick evaluation identity:
+ *    the 1-based ordinal of this frozen publication within the current
+ *    freeze episode. It increases by one on every frozen frame that is
+ *    published (each new failing measured sample and each no-frame
+ *    advanceTime tick), so every frozen frame is distinct and the
+ *    coordinator can re-evaluate new events against the held position.
+ *    It resets to 1 at the start of each new freeze episode.
+ *
+ * Consumers that gate on measured-frame freshness (e.g. the 150ms
+ * checkpoint age) or on measuredSourceFrameId monotonicity must EXEMPT
+ * provenance "frozen" frames and use frozenTickId as the monotonic
+ * per-tick identity instead.
+ *
  * @typedef {Object} AeroGameplayEvidenceSnapshot
  * @property {"aerobeat/gameplay_evidence_snapshot"} schema Schema ID.
  * @property {1} version Schema version.
  * @property {string} calibrationId Calibration generation.
- * @property {string} measuredSourceFrameId Real source-frame identity.
- * @property {number} measurementTimestampMs Real measurement timestamp.
- * @property {"measured"} provenance Evidence used by calibrated prototype scoring is measured.
- * @property {readonly AeroBoxingAction[]} activeBoxingActions Positive semantic observations; overlapping actions are allowed.
- * @property {readonly import("./body-grid-contracts.js").AeroBodyGridAnchorSnapshot[]} anchors Measured anchor snapshots.
- * @property {readonly import("./body-grid-contracts.js").AeroBodyGridCellEntry[]} entries Measured cell entries with optional eight-way directional evidence.
+ * @property {string} measuredSourceFrameId Real source-frame identity; unchanged on frozen frames.
+ * @property {number} measurementTimestampMs Real measurement timestamp; the held value on frozen frames.
+ * @property {AeroGameplayEvidenceProvenance} provenance Evidence provenance.
+ * @property {number} [frozenTickId] Per-tick evaluation identity, present exactly when provenance is "frozen".
+ * @property {readonly AeroBoxingAction[]} activeBoxingActions Positive semantic observations; overlapping actions are allowed. Empty on frozen frames.
+ * @property {readonly import("./body-grid-contracts.js").AeroBodyGridAnchorSnapshot[]} anchors Measured anchor snapshots; held anchor snapshots on frozen frames.
+ * @property {readonly import("./body-grid-contracts.js").AeroBodyGridCellEntry[]} entries Measured cell entries with optional eight-way directional evidence. Empty on frozen frames.
  */
 
 /**
@@ -550,13 +588,21 @@ export const prototypeJudgementDefaults = Object.freeze({
  * @returns {value is AeroGameplayEvidenceSnapshot}
  */
 export function isGameplayEvidenceSnapshot(value) {
-  return isRecord(value) &&
-    value.schema === "aerobeat/gameplay_evidence_snapshot" &&
+  if (!isRecord(value)) {
+    return false;
+  }
+  /* Frozen frames are the held frame republished while the anchors are
+     frozen: they carry a strictly positive per-tick identity, and no
+     frozenTickId field at all may appear on measured frames. */
+  const provenanceValid = value.provenance === "measured"
+    ? !Object.hasOwn(value, "frozenTickId")
+    : value.provenance === "frozen" && isPositiveInteger(value.frozenTickId);
+  return value.schema === "aerobeat/gameplay_evidence_snapshot" &&
     value.version === 1 &&
     isNonEmptyString(value.calibrationId) &&
     isNonEmptyString(value.measuredSourceFrameId) &&
     isNonNegativeFiniteNumber(value.measurementTimestampMs) &&
-    value.provenance === "measured" &&
+    provenanceValid &&
     Array.isArray(value.activeBoxingActions) && value.activeBoxingActions.every((item) => isOneOf(item, boxingActions)) &&
     Array.isArray(value.anchors) && value.anchors.every(isBodyGridAnchorSnapshot) &&
     Array.isArray(value.entries) && value.entries.every(isBodyGridCellEntry);

@@ -98,11 +98,13 @@ import {
  * @property {"aerobeat/tracking_safety_snapshot"} schema Schema ID.
  * @property {1} version Schema version.
  * @property {number} timestampMs Snapshot timestamp.
- * @property {number} lossThresholdMs Sustained loss duration that pauses gameplay.
+ * @property {number} lossThresholdMs Sustained loss duration that trips the tracking-loss gate: the anchor freeze when already calibrated, the full pause otherwise.
  * @property {number} lossDurationMs Current sustained loss duration.
  * @property {boolean} allRequiredAnchorsVisible Whether all seven required anchors pass confidence.
  * @property {boolean} gameplayPaused Whether tracking safety currently pauses gameplay.
  * @property {boolean} freshCalibrationRequired Whether pause exit requires new calibration.
+ * @property {boolean} anchorsFrozen Whether a calibrated mid-run tracking freeze is active: the loss-decision anchors hold their last measured positions, the session keeps playing (no pause, no fresh calibration), and the last measured frame keeps being republished as `provenance:"frozen"` evidence.
+ * @property {readonly AeroUpperBodyAnchorName[]} degradedAnchors Loss-decision anchors (a subset of lossDecisionAnchorNames, in that order) currently below requiredConfidence in the latest measured frame. Empty when none are degraded. This is the per-anchor data for the per-marker dim: an anchor leaves the set the moment it measures back above the gate.
  */
 
 /** @type {readonly AeroUpperBodyAnchorName[]} */
@@ -288,6 +290,10 @@ export function isCalibrationSnapshot(value) {
  * @returns {value is AeroTrackingSafetySnapshot}
  */
 export function isTrackingSafetySnapshot(value) {
+  const degradedAnchors = value.degradedAnchors;
+  const degradedValid = Array.isArray(degradedAnchors) &&
+    degradedAnchors.every((name) => isOneOf(name, lossDecisionAnchorNames)) &&
+    new Set(degradedAnchors).size === degradedAnchors.length;
   return isRecord(value) &&
     value.schema === "aerobeat/tracking_safety_snapshot" &&
     value.version === 1 &&
@@ -296,5 +302,7 @@ export function isTrackingSafetySnapshot(value) {
     isNonNegativeFiniteNumber(value.lossDurationMs) &&
     typeof value.allRequiredAnchorsVisible === "boolean" &&
     typeof value.gameplayPaused === "boolean" &&
-    typeof value.freshCalibrationRequired === "boolean";
+    typeof value.freshCalibrationRequired === "boolean" &&
+    typeof value.anchorsFrozen === "boolean" &&
+    degradedValid;
 }

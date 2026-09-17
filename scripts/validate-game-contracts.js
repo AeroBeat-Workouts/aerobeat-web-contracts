@@ -472,6 +472,79 @@ assert.equal(isGameplayEvidenceSnapshot({
   anchors: [anchor],
   entries: []
 }), false);
+// 0.0.60 W4: frozen frames hold the last measured frame's identity/timestamp,
+// carry no semantic or motion evidence, and are keyed by a per-tick identity.
+assert.equal(isGameplayEvidenceSnapshot({
+  schema: "aerobeat/gameplay_evidence_snapshot",
+  version: 1,
+  calibrationId: "cal-1",
+  measuredSourceFrameId: "epoch:1",
+  measurementTimestampMs: 100,
+  provenance: "frozen",
+  frozenTickId: 1,
+  activeBoxingActions: [],
+  anchors: [anchor],
+  entries: []
+}), true, "a frozen evidence frame with a per-tick identity is valid");
+assert.equal(isGameplayEvidenceSnapshot({
+  schema: "aerobeat/gameplay_evidence_snapshot",
+  version: 1,
+  calibrationId: "cal-1",
+  measuredSourceFrameId: "epoch:1",
+  measurementTimestampMs: 100,
+  provenance: "measured",
+  frozenTickId: 1,
+  activeBoxingActions: [],
+  anchors: [anchor],
+  entries: []
+}), false, "measured frames must not carry a frozenTickId");
+assert.equal(isGameplayEvidenceSnapshot({
+  schema: "aerobeat/gameplay_evidence_snapshot",
+  version: 1,
+  calibrationId: "cal-1",
+  measuredSourceFrameId: "epoch:1",
+  measurementTimestampMs: 100,
+  provenance: "frozen",
+  activeBoxingActions: [],
+  anchors: [anchor],
+  entries: []
+}), false, "frozen frames require the per-tick identity");
+assert.equal(isGameplayEvidenceSnapshot({
+  schema: "aerobeat/gameplay_evidence_snapshot",
+  version: 1,
+  calibrationId: "cal-1",
+  measuredSourceFrameId: "epoch:1",
+  measurementTimestampMs: 100,
+  provenance: "frozen",
+  frozenTickId: 0,
+  activeBoxingActions: [],
+  anchors: [anchor],
+  entries: []
+}), false, "the per-tick identity is 1-based");
+assert.equal(isGameplayEvidenceSnapshot({
+  schema: "aerobeat/gameplay_evidence_snapshot",
+  version: 1,
+  calibrationId: "cal-1",
+  measuredSourceFrameId: "epoch:1",
+  measurementTimestampMs: 100,
+  provenance: "frozen",
+  frozenTickId: 1.5,
+  activeBoxingActions: [],
+  anchors: [anchor],
+  entries: []
+}), false, "the per-tick identity must be an integer");
+assert.equal(isGameplayEvidenceSnapshot({
+  schema: "aerobeat/gameplay_evidence_snapshot",
+  version: 1,
+  calibrationId: "cal-1",
+  measuredSourceFrameId: "epoch:1",
+  measurementTimestampMs: 100,
+  provenance: "frozen",
+  frozenTickId: "1",
+  activeBoxingActions: [],
+  anchors: [anchor],
+  entries: []
+}), false, "the per-tick identity must be a number");
 
 assert.equal(isGameplayJudgement({
   schema: "aerobeat/gameplay_judgement",

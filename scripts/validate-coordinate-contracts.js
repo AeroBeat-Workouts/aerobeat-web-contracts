@@ -20,6 +20,7 @@ import {
   isBodyGridAnchorSnapshot,
   isBodyGridCellEntry,
   isCalibrationSnapshot,
+  isTrackingSafetySnapshot,
   lossDecisionAnchorNames,
   normalizedPointToGridCell,
   recoveryHoldMs,
@@ -171,6 +172,30 @@ const calibration = {
 assert.equal(isCalibrationSnapshot(calibration), true);
 assert.equal(isCalibrationSnapshot({ ...calibration, grid: { ...athleteBodyGrid4x3, id: "wrong-grid" } }), false);
 assert.equal(isCalibrationSnapshot({ ...calibration, subgrid: { ...athleteBodySubgrid8x6, columns: 4 } }), false);
+
+// 0.0.60 W4: the tracking-safety snapshot exposes the anchor-freeze state
+// and the per-anchor degraded set for the per-marker dim.
+const trackingSafety = {
+  schema: "aerobeat/tracking_safety_snapshot",
+  version: 1,
+  timestampMs: 4000,
+  lossThresholdMs: calibrationDefaults.trackingLossPauseMs,
+  lossDurationMs: 800,
+  allRequiredAnchorsVisible: false,
+  gameplayPaused: false,
+  freshCalibrationRequired: false,
+  anchorsFrozen: true,
+  degradedAnchors: ["nose", "right_wrist"]
+};
+assert.equal(isTrackingSafetySnapshot(trackingSafety), true);
+assert.equal(isTrackingSafetySnapshot({ ...trackingSafety, anchorsFrozen: false, degradedAnchors: [] }), true, "unfrozen snapshots carry an empty degraded set");
+assert.equal(isTrackingSafetySnapshot({ ...trackingSafety, anchorsFrozen: "yes" }), false, "anchorsFrozen must be a boolean");
+const withoutAnchorsFrozen = { ...trackingSafety };
+delete withoutAnchorsFrozen.anchorsFrozen;
+assert.equal(isTrackingSafetySnapshot(withoutAnchorsFrozen), false, "anchorsFrozen is a required field");
+assert.equal(isTrackingSafetySnapshot({ ...trackingSafety, degradedAnchors: ["left_shoulder"] }), false, "non loss-decision anchors cannot be degraded");
+assert.equal(isTrackingSafetySnapshot({ ...trackingSafety, degradedAnchors: ["nose", "nose"] }), false, "degraded anchors must be distinct");
+assert.equal(isTrackingSafetySnapshot({ ...trackingSafety, degradedAnchors: "nose" }), false, "degradedAnchors must be an array");
 
 assert.deepEqual(upperBodyAnchorNames, [
   "nose",
