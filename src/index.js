@@ -20,3 +20,4 @@ export * from "./authored-timing.js";
 export * from "./theme-contracts.js";
 export * from "./host-contracts.js";
 export * from "./iframe-contracts.js";
+export * from "./equipment-contracts.js";

@@ -27,6 +27,7 @@ It intentionally does not implement camera access, pose detection, input routing
 - `src/theme-contracts.js` owns serializable theme tokens and background suggestions.
 - `src/host-contracts.js` owns exact-container capabilities, fullscreen state, asset policy and exact versioned direct-host command/event envelopes.
 - `src/iframe-contracts.js` owns the strict immediate-parent protocol and rejects nested case/separator aliases for raw frames, pixels, screenshots, media streams/tracks, ZIP/archive bytes and audio bytes.
+- `src/equipment-contracts.js` is the shared 0.0.61 equipment geometry source: JUDGE-SPACE saber capsule and glove-box detection volumes (GATE 1 locked values), the equipment-mode marker-visibility constant (all wrist + nose markers hidden), the judge/presentation column-center tables, and the `judgeToPresentationPoint` helper (X − 1.5, Y unchanged) so the renderer derives visible equipment size/position from the same constants that drive detection — the "what you see is what hits" invariant.
 - `src/index.js` exports the complete public contract surface; focused subpath exports are also declared in `package.json`.
 
 ## Adjacent Repos
