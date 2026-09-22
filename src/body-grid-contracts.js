@@ -52,12 +52,12 @@ import {
  * @property {AeroUpperBodyAnchorName} anchor Anchor identity.
  * @property {string} calibrationId Calibration generation identity.
  * @property {number} measurementTimestampMs Latest real measurement timestamp.
- * @property {boolean} valid Whether this measured anchor is gameplay-valid.
+ * @property {boolean} valid Whether this measured anchor has a gameplay-usable signal; finite off-grid positions remain valid.
  * @property {number} confidence Normalized measured confidence.
  * @property {number} rawX Unclamped athlete-space X.
  * @property {number} rawY Unclamped athlete-space Y.
- * @property {number | null} x Normalized athlete-space X when valid.
- * @property {number | null} y Normalized athlete-space Y when valid.
+ * @property {number | null} x Finite athlete-space X when signal-valid; values outside [0,1] remain unclamped.
+ * @property {number | null} y Finite athlete-space Y when signal-valid; values outside [0,1] remain unclamped.
  * @property {number | null} cell Top-left row-major 4x3 scoring cell, or null outside the grid.
  * @property {number | null} subcell Top-left row-major 8x6 diagnostic/scoring subcell, or null outside the grid.
  */
@@ -197,11 +197,13 @@ export function isBodyGridAnchorSnapshot(value) {
     return false;
   }
   const valid = typeof value.valid === "boolean" ? value.valid : false;
-  const normalizedPosition = valid
-    ? isNormalizedNumber(value.rawX) && isNormalizedNumber(value.rawY) && isNormalizedNumber(value.x) && isNormalizedNumber(value.y)
+  const positionValid = valid
+    ? isFiniteNumber(value.x) && isFiniteNumber(value.y)
     : (value.x === null || isNormalizedNumber(value.x)) && (value.y === null || isNormalizedNumber(value.y));
   const nullableCell = value.cell === null || (Number.isInteger(value.cell) && Number(value.cell) >= 0 && Number(value.cell) < 12);
   const nullableSubcell = value.subcell === null || (Number.isInteger(value.subcell) && Number(value.subcell) >= 0 && Number(value.subcell) < 48);
+  const positionIsInGrid = isNormalizedNumber(value.x) && isNormalizedNumber(value.y);
+  const scoringCellsConsistent = (!valid || positionIsInGrid) ? true : value.cell === null && value.subcell === null;
   const invalidHasNoScoringCell = valid || (value.cell === null && value.subcell === null);
   return value.schema === "aerobeat/body_grid_anchor_snapshot" &&
     value.version === 1 &&
@@ -212,9 +214,10 @@ export function isBodyGridAnchorSnapshot(value) {
     isNormalizedNumber(value.confidence) &&
     isFiniteNumber(value.rawX) &&
     isFiniteNumber(value.rawY) &&
-    normalizedPosition &&
+    positionValid &&
     nullableCell &&
     nullableSubcell &&
+    scoringCellsConsistent &&
     invalidHasNoScoringCell &&
     (!valid || (value.x !== null && value.y !== null));
 }

@@ -461,6 +461,32 @@ assert.equal(isGameplayEvidenceSnapshot({
   anchors: [anchor],
   entries: []
 }), true);
+const offGridAnchor = {
+  ...anchor,
+  rawX: -0.2,
+  rawY: 1.3,
+  x: -0.2,
+  y: 1.3,
+  cell: null,
+  subcell: null
+};
+const offGridEvidence = {
+  schema: "aerobeat/gameplay_evidence_snapshot",
+  version: 1,
+  calibrationId: "cal-1",
+  measuredSourceFrameId: "epoch:off-grid",
+  measurementTimestampMs: 100,
+  provenance: "measured",
+  activeBoxingActions: [],
+  anchors: [offGridAnchor],
+  entries: []
+};
+assert.equal(isGameplayEvidenceSnapshot(offGridEvidence), true, "measured gameplay evidence accepts finite off-grid anchors without scoring cells");
+assert.equal(isGameplayEvidenceSnapshot(structuredClone(offGridEvidence)), true, "off-grid gameplay evidence remains plain clone-safe data");
+assert.equal(isGameplayEvidenceSnapshot({ ...offGridEvidence, anchors: [{ ...offGridAnchor, x: Number.NaN }] }), false, "gameplay evidence rejects nonfinite off-grid anchors");
+assert.equal(isGameplayEvidenceSnapshot({ ...offGridEvidence, anchors: [{ ...offGridAnchor, cell: 0 }] }), false, "gameplay evidence rejects off-grid anchors with inconsistent scoring cells");
+assert.equal(isGameplayEvidenceSnapshot({ ...offGridEvidence, anchors: [{ ...offGridAnchor, valid: false }] }), false, "gameplay evidence rejects invalid anchors that retain off-grid staged coordinates");
+assert.equal(isGameplayEvidenceSnapshot(Object.assign(new (class Evidence {})(), offGridEvidence)), false, "gameplay evidence remains restricted to plain records");
 assert.equal(isGameplayEvidenceSnapshot({
   schema: "aerobeat/gameplay_evidence_snapshot",
   version: 1,

@@ -81,11 +81,35 @@ const anchor = {
   cell: 0,
   subcell: 10
 };
-assert.equal(isBodyGridAnchorSnapshot(anchor), true);
-assert.equal(isBodyGridAnchorSnapshot({ ...anchor, rawX: -0.2, rawY: 1.3, valid: false, x: null, y: null, cell: null, subcell: null }), true);
-assert.equal(isBodyGridAnchorSnapshot({ ...anchor, rawX: -0.2, valid: true }), false);
-assert.equal(isBodyGridAnchorSnapshot({ ...anchor, valid: false, cell: 0, subcell: 0 }), false);
+assert.equal(isBodyGridAnchorSnapshot(anchor), true, "signal-valid in-grid anchors remain accepted");
+const offGridAnchor = {
+  ...anchor,
+  rawX: -0.2,
+  rawY: 1.3,
+  x: -0.2,
+  y: 1.3,
+  cell: null,
+  subcell: null
+};
+assert.equal(isBodyGridAnchorSnapshot(offGridAnchor), true, "signal-valid finite off-grid anchors remain visible without becoming scoring cells");
+assert.equal(isBodyGridAnchorSnapshot(structuredClone(offGridAnchor)), true, "finite off-grid anchors remain plain clone-safe data");
+assert.equal(isBodyGridAnchorSnapshot({ ...offGridAnchor, cell: 0 }), false, "off-grid anchors cannot claim a scoring cell");
+assert.equal(isBodyGridAnchorSnapshot({ ...offGridAnchor, subcell: 0 }), false, "off-grid anchors cannot claim a scoring subcell");
+for (const field of ["rawX", "rawY", "x", "y"]) {
+  for (const nonfinite of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    assert.equal(isBodyGridAnchorSnapshot({ ...offGridAnchor, [field]: nonfinite }), false, `${field} must remain finite`);
+  }
+}
+assert.equal(isBodyGridAnchorSnapshot({ ...offGridAnchor, x: null }), false, "signal-valid anchors require both staged coordinates");
+assert.equal(isBodyGridAnchorSnapshot({ ...anchor, rawX: -0.2, rawY: 1.3, valid: false, x: null, y: null, cell: null, subcell: null }), true, "invalid anchors retain finite raw coordinates without staged scoring data");
+assert.equal(isBodyGridAnchorSnapshot({ ...anchor, valid: false, x: -0.2, y: null, cell: null, subcell: null }), false, "invalid anchors cannot expose an off-grid staged position");
+assert.equal(isBodyGridAnchorSnapshot({ ...anchor, valid: false, cell: 0, subcell: 0 }), false, "invalid anchors cannot claim scoring cells");
 assert.equal(isBodyGridAnchorSnapshot({ ...anchor, valid: true, cell: null }), true, "valid in-grid coordinates may retain null scoring cell only when calibration geometry rejects it downstream");
+assert.equal(isBodyGridAnchorSnapshot({ ...anchor, confidence: 1.1 }), false, "confidence remains normalized");
+assert.equal(isBodyGridAnchorSnapshot({ ...anchor, anchor: "unknown" }), false, "anchor identity remains constrained");
+assert.equal(isBodyGridAnchorSnapshot({ ...anchor, calibrationId: "" }), false, "calibration identity remains required");
+assert.equal(isBodyGridAnchorSnapshot(Object.assign(new (class Anchor {})(), offGridAnchor)), false, "class instances cannot cross the anchor contract boundary");
+assert.equal(isBodyGridAnchorSnapshot(Object.assign(Object.create({ polluted: true }), offGridAnchor)), false, "custom prototypes cannot cross the anchor contract boundary");
 
 assert.deepEqual(bodyGridDirections, [
   "up",
