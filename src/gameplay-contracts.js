@@ -400,14 +400,15 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  */
 
 /**
- * Version 2 is authoritative normal-Play judgement truth with the exact song
- * timeline position at which gameplay committed the result. Visual Test
- * demonstrations never create this record; they remain renderer/assembly-local.
+ * Version 2 is authoritative Play or unranked Visual-Test judgement truth with
+ * the exact song timeline position at which gameplay committed the result.
+ * Renderer-only Visual Test demonstrations remain assembly-local and do not
+ * create this record.
  *
  * @typedef {Object} AeroGameplayJudgementV2
  * @property {"aerobeat/gameplay_judgement"} schema Schema ID.
  * @property {2} version Schema version.
- * @property {"play"} sessionPurpose Only normal Play may produce real judgement truth.
+ * @property {"play" | "visual_test"} sessionPurpose Session purpose that produced real judgement truth.
  * @property {string} eventId Authored event identity.
  * @property {AeroRulesetId} rulesetId Ruleset identity.
  * @property {AeroConversionRecipeId | null} recipeId Recipe identity when generated.
@@ -648,7 +649,7 @@ export function isGameplayJudgementV2(value) {
   return hasExactKeys(value, fields) &&
     value.schema === "aerobeat/gameplay_judgement" &&
     value.version === 2 &&
-    value.sessionPurpose === "play" &&
+    (value.sessionPurpose === "play" || value.sessionPurpose === "visual_test") &&
     isBoundedNonEmptyString(value.eventId, 512) &&
     isOneOf(value.rulesetId, rulesetIds) &&
     (value.recipeId === null || isOneOf(value.recipeId, conversionRecipeIds)) &&

@@ -602,6 +602,9 @@ const committedJudgement = {
 };
 assert.equal(isGameplayJudgementV2(committedJudgement), true);
 assert.equal(isGameplayJudgement(committedJudgement), true);
+const visualTestJudgement = { ...committedJudgement, sessionPurpose: "visual_test" };
+assert.equal(isGameplayJudgementV2(visualTestJudgement), true, "real Visual Test judgement truth accepts");
+assert.equal(isGameplayJudgement(visualTestJudgement), true, "generic judgement validation admits Visual Test v2 truth");
 assert.equal(isGameplayJudgementV2({
   ...committedJudgement,
   rulesetId: "flow_colliders_v1",
@@ -609,7 +612,9 @@ assert.equal(isGameplayJudgementV2({
   diagnostics: ["wrong_collider"]
 }), true, "Flow Colliders exact ruleset and bounded semantic diagnostic accept");
 for (const invalid of [
-  { ...committedJudgement, sessionPurpose: "visual_test" },
+  { ...committedJudgement, sessionPurpose: "test" },
+  { ...committedJudgement, sessionPurpose: "visual-test" },
+  { ...committedJudgement, sessionPurpose: null },
   { ...committedJudgement, committedTimelinePositionMs: -1 },
   { ...committedJudgement, committedTimelinePositionMs: Number.POSITIVE_INFINITY },
   { ...committedJudgement, diagnostics: ["no_input", "no_input"] },
