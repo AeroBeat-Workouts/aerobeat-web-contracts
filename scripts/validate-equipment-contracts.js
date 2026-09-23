@@ -2,12 +2,34 @@
 
 import assert from "node:assert/strict";
 import {
+  canonicalEquipmentQuaternionBytes,
+  canonicalizeEquipmentQuaternion,
+  createEquipmentConfigIdentity,
+  createFixedEquipmentPoseEndpoints,
+  createFixedEquipmentQuaternionEndpoints,
+  createResolvedEquipmentPose,
+  equipmentConfigIdentityInput,
+  equipmentEulerDegreesToQuaternion,
   equipmentMarkerVisibility,
   gloveGeometry,
+  gloveObbGeometry,
+  isEquipmentConfigIdentity,
+  isNormalizedEquipmentQuaternion,
+  isResolvedEquipmentPose,
   judgeColumnCenters,
   judgeToPresentationPoint,
+  multiplyEquipmentQuaternions,
+  normalizeEquipmentQuaternion,
   presentationColumnCenters,
-  saberGeometry
+  resolveBoxingEquipmentOrientation,
+  resolveFixedEquipmentPose,
+  resolveFixedEquipmentQuaternion,
+  resolveFlowEquipmentOrientation,
+  resolveGloveObb,
+  resolveSaberCapsule,
+  saberCapsuleGeometry,
+  saberGeometry,
+  slerpEquipmentQuaternionShortest
 } from "../src/index.js";
 
 // GATE 1 (2026-09-17) locked geometry, JUDGE-SPACE WU:
@@ -90,5 +112,210 @@ for (const invalid of [
     `malformed point ${JSON.stringify(invalid)} must reject`
   );
 }
+
+// 0.0.67 canonical equipment pose authority.
+const EPSILON = 1e-12;
+const approx = (actual, expected, message) => assert.ok(Math.abs(actual - expected) <= EPSILON, `${message}: expected ${expected}, got ${actual}`);
+const approxQuaternion = (actual, expected, message) => {
+  for (const key of ["x", "y", "z", "w"]) approx(actual[key], expected[key], `${message}.${key}`);
+};
+const assertDeepFrozen = (value, message) => {
+  if (typeof value !== "object" || value === null) return;
+  assert.equal(Object.isFrozen(value), true, message);
+  for (const child of Object.values(value)) assertDeepFrozen(child, message);
+};
+const SQRT_HALF = Math.SQRT1_2;
+const identityQuaternion = Object.freeze({ x: 0, y: 0, z: 0, w: 1 });
+const configIdentity = Object.freeze({
+  schema: "aerobeat/equipment_config_identity",
+  version: 1,
+  algorithm: "sha256",
+  value: "a".repeat(64)
+});
+
+assert.deepEqual(equipmentEulerDegreesToQuaternion({ x: 0, y: 0, z: 0 }), identityQuaternion);
+approxQuaternion(equipmentEulerDegreesToQuaternion({ x: 90, y: 0, z: 0 }), { x: SQRT_HALF, y: 0, z: 0, w: SQRT_HALF }, "X rotation");
+approxQuaternion(equipmentEulerDegreesToQuaternion({ x: 0, y: 90, z: 0 }), { x: 0, y: SQRT_HALF, z: 0, w: SQRT_HALF }, "Y rotation");
+approxQuaternion(equipmentEulerDegreesToQuaternion({ x: 0, y: 0, z: 90 }), { x: 0, y: 0, z: SQRT_HALF, w: SQRT_HALF }, "Z rotation");
+
+// Golden intrinsic-local XYZ formula, independently expanded for 30/40/50 degrees.
+const hx = 15 * Math.PI / 180;
+const hy = 20 * Math.PI / 180;
+const hz = 25 * Math.PI / 180;
+const sx = Math.sin(hx), cx = Math.cos(hx), sy = Math.sin(hy), cy = Math.cos(hy), sz = Math.sin(hz), cz = Math.cos(hz);
+approxQuaternion(equipmentEulerDegreesToQuaternion({ x: 30, y: 40, z: 50 }), {
+  x: sx * cy * cz - cx * sy * sz,
+  y: cx * sy * cz + sx * cy * sz,
+  z: cx * cy * sz - sx * sy * cz,
+  w: cx * cy * cz + sx * sy * sz
+}, "combined XYZ rotation");
+
+const flowOrientation = resolveFlowEquipmentOrientation({
+  headingDeg: 90,
+  baseEulerDeg: { x: 30, y: 0, z: 0 },
+  animatedEulerDeg: { x: 0, y: 40, z: 0 }
+});
+const expectedFlow = multiplyEquipmentQuaternions(
+  multiplyEquipmentQuaternions(
+    equipmentEulerDegreesToQuaternion({ x: 0, y: 0, z: 90 }),
+    equipmentEulerDegreesToQuaternion({ x: 30, y: 0, z: 0 })
+  ),
+  equipmentEulerDegreesToQuaternion({ x: 0, y: 40, z: 0 })
+);
+approxQuaternion(flowOrientation, expectedFlow, "Flow heading * base * animated");
+const boxingOrientation = resolveBoxingEquipmentOrientation({
+  baseEulerDeg: { x: 30, y: 40, z: 0 },
+  animatedEulerDeg: { x: 0, y: 0, z: 50 }
+});
+approxQuaternion(boxingOrientation, multiplyEquipmentQuaternions(
+  equipmentEulerDegreesToQuaternion({ x: 30, y: 40, z: 0 }),
+  equipmentEulerDegreesToQuaternion({ x: 0, y: 0, z: 50 })
+), "Boxing base * animated");
+
+// q and -q are the same orientation and produce identical canonical bytes.
+const signed = equipmentEulerDegreesToQuaternion({ x: 23, y: -71, z: 179 });
+const negated = Object.freeze({ x: -signed.x, y: -signed.y, z: -signed.z, w: -signed.w });
+assert.deepEqual(normalizeEquipmentQuaternion(signed), normalizeEquipmentQuaternion(negated));
+assert.deepEqual(canonicalizeEquipmentQuaternion(signed), canonicalizeEquipmentQuaternion(negated));
+assert.deepEqual(canonicalEquipmentQuaternionBytes(signed), canonicalEquipmentQuaternionBytes(negated));
+assert.deepEqual(
+  canonicalEquipmentQuaternionBytes({ x: -1, y: -0, z: -0, w: 0 }),
+  canonicalEquipmentQuaternionBytes({ x: 1, y: 0, z: 0, w: -0 }),
+  "180-degree sign equivalence canonicalizes signed zero"
+);
+assert.equal(Object.isFrozen(canonicalEquipmentQuaternionBytes(signed)), true);
+
+// +170 to -170 travels 20 degrees through ±180, not 340 degrees through zero.
+const plus170 = equipmentEulerDegreesToQuaternion({ x: 0, y: 0, z: 170 });
+const minus170 = equipmentEulerDegreesToQuaternion({ x: 0, y: 0, z: -170 });
+const at180 = slerpEquipmentQuaternionShortest(plus170, minus170, 0.5);
+approx(Math.abs(at180.z), 1, "shortest-path midpoint z");
+approx(at180.w, 0, "shortest-path midpoint w");
+
+const endpoints = createFixedEquipmentQuaternionEndpoints(plus170, minus170);
+const dense = Array.from({ length: 101 }, (_, index) => resolveFixedEquipmentQuaternion(endpoints, index / 100));
+const sparse = [0, 0.25, 0.5, 0.75, 1].map((progress) => resolveFixedEquipmentQuaternion(endpoints, progress));
+for (const [index, progress] of [0, 0.25, 0.5, 0.75, 1].entries()) {
+  approxQuaternion(sparse[index], dense[Math.round(progress * 100)], `dense/sparse fixed endpoint ${progress}`);
+}
+assertDeepFrozen(endpoints, "fixed endpoints are deeply frozen");
+
+const flowPose = createResolvedEquipmentPose({
+  role: "left_wrist",
+  mode: "flow",
+  anchor: { x: 1, y: 2, z: 3 },
+  scale: 1,
+  orientation: equipmentEulerDegreesToQuaternion({ x: 0, y: 0, z: 90 }),
+  geometryIdentity: "aerobeat/saber_capsule_v1",
+  configIdentity
+});
+assertDeepFrozen(flowPose, "resolved Flow pose is deeply frozen");
+assert.deepEqual(Object.keys(flowPose), ["role", "mode", "anchor", "scale", "orientation", "geometryIdentity", "configIdentity"]);
+assert.equal("rotationZ" in flowPose, false);
+assert.equal("rotationZDeg" in flowPose, false);
+const saberAtOne = resolveSaberCapsule(flowPose);
+approxQuaternion({ ...saberAtOne.axis, w: 0 }, { x: 0, y: 1, z: 0, w: 0 }, "scale-one saber axis");
+assert.deepEqual(saberAtOne.start, { x: 1, y: 2, z: 3 });
+approx(saberAtOne.end.x, 1, "scale-one saber endpoint x");
+approx(saberAtOne.end.y, 2.75, "scale-one saber endpoint y");
+approx(saberAtOne.end.z, 3, "scale-one saber endpoint z");
+approx(saberAtOne.radius, 0.18, "scale-one saber radius");
+const saberAtTwo = resolveSaberCapsule({ ...flowPose, scale: 2 });
+approx(saberAtTwo.end.y, 3.5, "scale-two saber endpoint y");
+approx(saberAtTwo.radius, 0.36, "scale-two saber radius");
+assertDeepFrozen(saberAtTwo, "transformed saber is deeply frozen");
+
+const targetFlowPose = createResolvedEquipmentPose({
+  ...flowPose,
+  anchor: { x: 3, y: 4, z: 5 },
+  scale: 2,
+  orientation: minus170
+});
+const poseEndpoints = createFixedEquipmentPoseEndpoints({ ...flowPose, orientation: plus170 }, targetFlowPose);
+const sparsePose = resolveFixedEquipmentPose(poseEndpoints, 0.5);
+let densePose = poseEndpoints.start;
+for (let index = 0; index <= 50; index += 1) densePose = resolveFixedEquipmentPose(poseEndpoints, index / 100);
+assert.deepEqual(sparsePose, densePose, "fixed pose endpoints are dense/sparse cadence invariant");
+assert.deepEqual(sparsePose.anchor, { x: 2, y: 3, z: 4 });
+assert.equal(sparsePose.scale, 1.5);
+assertDeepFrozen(poseEndpoints, "fixed pose endpoints are deeply frozen");
+assertDeepFrozen(sparsePose, "resolved fixed pose is deeply frozen");
+
+const glovePose = createResolvedEquipmentPose({
+  role: "right_wrist",
+  mode: "boxing",
+  anchor: { x: -1, y: 0.5, z: 2 },
+  scale: 0.75,
+  orientation: equipmentEulerDegreesToQuaternion({ x: 90, y: 0, z: 90 }),
+  geometryIdentity: "aerobeat/glove_obb_v1",
+  configIdentity
+});
+const glove = resolveGloveObb(glovePose);
+assert.deepEqual(glove.halfExtents, { x: 0.255, y: 0.21000000000000002, z: 0.255 });
+approx(glove.center.x, -0.9625, "scaled glove center x");
+approx(glove.center.y, 0.5, "scaled glove center y");
+approx(glove.center.z, 2, "scaled glove center z");
+approxQuaternion({ ...glove.axes.x, w: 0 }, { x: 0, y: 1, z: 0, w: 0 }, "glove x axis");
+approxQuaternion({ ...glove.axes.y, w: 0 }, { x: 0, y: 0, z: 1, w: 0 }, "glove y axis");
+approxQuaternion({ ...glove.axes.z, w: 0 }, { x: 1, y: 0, z: 0, w: 0 }, "glove z axis");
+assertDeepFrozen(glove, "transformed glove is deeply frozen");
+assertDeepFrozen(saberCapsuleGeometry, "canonical saber descriptor is deeply frozen");
+assertDeepFrozen(gloveObbGeometry, "canonical glove descriptor is deeply frozen");
+
+const canonicalConfigJson = '{"a":1,"z":{"b":2}}';
+const identityInput = equipmentConfigIdentityInput({
+  configSchema: "aerobeat/equipment_config",
+  configVersion: 2,
+  canonicalConfigJson
+});
+assert.equal(identityInput, '{"schema":"aerobeat/equipment_config_identity_input","version":1,"configSchema":"aerobeat/equipment_config","configVersion":2,"geometryIdentities":["aerobeat/saber_capsule_v1","aerobeat/glove_obb_v1"],"canonicalConfigJson":"{\\"a\\":1,\\"z\\":{\\"b\\":2}}"}');
+assert.equal(isEquipmentConfigIdentity(configIdentity), true);
+assert.deepEqual(createEquipmentConfigIdentity(configIdentity), configIdentity);
+assertDeepFrozen(createEquipmentConfigIdentity(configIdentity), "config identity is deeply frozen");
+assert.equal(isEquipmentConfigIdentity({ ...configIdentity, extra: true }), false);
+assert.throws(() => equipmentConfigIdentityInput({
+  configSchema: "aerobeat/equipment_config",
+  configVersion: 2,
+  canonicalConfigJson: '{"z":{"b":2},"a":1}'
+}), /equipment_config_identity_json_not_canonical/u);
+
+const malformedPoses = [
+  { ...flowPose, extra: true },
+  { ...flowPose, rotationZDeg: 0 },
+  { ...flowPose, scale: Number.NaN },
+  { ...flowPose, scale: 0 },
+  { ...flowPose, anchor: { x: 0, y: 0, z: Number.POSITIVE_INFINITY } },
+  { ...flowPose, orientation: { x: 0, y: 0, z: 0, w: 0 } },
+  { ...flowPose, orientation: { x: 0, y: 0, z: 0, w: 2 } },
+  { ...flowPose, geometryIdentity: "aerobeat/glove_obb_v1" },
+  { ...flowPose, configIdentity: { ...configIdentity, value: "A".repeat(64) } }
+];
+for (const malformed of malformedPoses) {
+  assert.equal(isResolvedEquipmentPose(malformed), false);
+  assert.throws(() => createResolvedEquipmentPose(malformed), /resolved_equipment_pose_invalid/u);
+}
+const accessorPose = { ...flowPose };
+Object.defineProperty(accessorPose, "scale", { enumerable: true, get: () => 1 });
+assert.equal(isResolvedEquipmentPose(accessorPose), false, "pose accessors reject");
+assert.throws(() => createResolvedEquipmentPose(accessorPose), /resolved_equipment_pose_invalid/u);
+
+for (const malformedQuaternion of [
+  { x: 0, y: 0, z: 0, w: 0 },
+  { x: Number.NaN, y: 0, z: 0, w: 1 },
+  { x: 0, y: 0, z: 0, w: Number.POSITIVE_INFINITY },
+  { x: 0, y: 0, z: 0, w: 1, extra: true }
+]) {
+  assert.equal(isNormalizedEquipmentQuaternion(malformedQuaternion), false);
+  assert.throws(() => normalizeEquipmentQuaternion(malformedQuaternion), /equipment_quaternion/u);
+}
+assert.throws(() => multiplyEquipmentQuaternions(identityQuaternion, { x: 0, y: 0, z: 0, w: 2 }), /equipment_quaternion_not_normalized/u);
+assert.throws(() => slerpEquipmentQuaternionShortest(identityQuaternion, identityQuaternion, -0.1), /equipment_slerp_progress_invalid/u);
+assert.throws(() => resolveFlowEquipmentOrientation({ headingDeg: 0, baseEulerDeg: { x: 0, y: 0, z: 0 }, animatedEulerDeg: { x: 0, y: 0, z: 0 }, rotationZDeg: 0 }), /flow_equipment_orientation_invalid/u);
+assert.throws(() => resolveBoxingEquipmentOrientation({ baseEulerDeg: { x: 0, y: 0, z: 0 }, animatedEulerDeg: { x: 0, y: 0, z: 0 }, extra: true }), /boxing_equipment_orientation_invalid/u);
+assert.throws(() => createEquipmentConfigIdentity({ ...configIdentity, extra: true }), /equipment_config_identity_invalid/u);
+assert.throws(() => createFixedEquipmentPoseEndpoints(flowPose, glovePose), /equipment_pose_endpoints_identity_mismatch/u);
+assert.throws(() => resolveFixedEquipmentPose({ ...poseEndpoints, extra: true }, 0.5), /equipment_pose_endpoints_invalid/u);
+assert.throws(() => resolveSaberCapsule(glovePose), /saber_pose_mode_invalid/u);
+assert.throws(() => resolveGloveObb(flowPose), /glove_pose_mode_invalid/u);
 
 console.log("Equipment-contracts validation passed.");

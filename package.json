@@ -28,7 +28,8 @@
     "./theme-contracts": "./src/theme-contracts.js",
     "./host-contracts": "./src/host-contracts.js",
     "./iframe-contracts": "./src/iframe-contracts.js",
-    "./equipment-contracts": "./src/equipment-contracts.js"
+    "./equipment-contracts": "./src/equipment-contracts.js",
+    "./equipment-pose-contracts": "./src/equipment-pose-contracts.js"
   },
   "scripts": {
     "check": "npm run check:jsdoc && npm run check:imports && npm run check:pose-adapter && npm run check:pose-routing && npm run check:coordinates && npm run check:game-contracts && npm run check:palette-timing && npm run check:equipment && npm run check:iframe && npm run check:components && npm run check:console",
