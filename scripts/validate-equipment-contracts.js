@@ -274,15 +274,23 @@ const identityInputV3 = equipmentConfigIdentityInput({
   configVersion: 3,
   canonicalConfigJson
 });
+const identityInputV4 = equipmentConfigIdentityInput({
+  configSchema: "aerobeat/equipment_config",
+  configVersion: 4,
+  canonicalConfigJson
+});
 assert.equal(identityInputV2, '{"schema":"aerobeat/equipment_config_identity_input","version":1,"configSchema":"aerobeat/equipment_config","configVersion":2,"geometryIdentities":["aerobeat/saber_capsule_v1","aerobeat/glove_obb_v1"],"canonicalConfigJson":"{\\"a\\":1,\\"z\\":{\\"b\\":2}}"}', "v2 identity bytes remain unchanged");
 assert.equal(identityInputV3, '{"schema":"aerobeat/equipment_config_identity_input","version":1,"configSchema":"aerobeat/equipment_config","configVersion":3,"geometryIdentities":["aerobeat/saber_capsule_v1","aerobeat/glove_obb_v1"],"canonicalConfigJson":"{\\"a\\":1,\\"z\\":{\\"b\\":2}}"}', "v3 identity records truthful configVersion 3");
-assert.notEqual(identityInputV2, identityInputV3, "otherwise analogous v2/v3 configs have distinct identity bytes");
+assert.equal(identityInputV4, '{"schema":"aerobeat/equipment_config_identity_input","version":1,"configSchema":"aerobeat/equipment_config","configVersion":4,"geometryIdentities":["aerobeat/saber_capsule_v1","aerobeat/glove_obb_v1"],"canonicalConfigJson":"{\\"a\\":1,\\"z\\":{\\"b\\":2}}"}', "v4 identity records truthful configVersion 4");
+assert.equal(new Set([identityInputV2, identityInputV3, identityInputV4]).size, 3, "analogous v2/v3/v4 configs have distinct identity bytes");
 const identityShaV2 = createHash("sha256").update(identityInputV2, "utf8").digest("hex");
 const identityShaV3 = createHash("sha256").update(identityInputV3, "utf8").digest("hex");
+const identityShaV4 = createHash("sha256").update(identityInputV4, "utf8").digest("hex");
 assert.equal(identityShaV2, "2a8bdbcc16e4d7b0222eb3ebcc389b822ad865eaffd16663dcc3bc98cec1521e", "v2 identity SHA remains locked");
-assert.equal(identityShaV3, "2e966a4723ee2e3cc5dfbb6f4ed7ac80bfab55109f9df86c4f139b8df04f4d80", "v3 identity SHA is locked");
-assert.notEqual(identityShaV2, identityShaV3, "otherwise analogous v2/v3 configs have distinct SHA-256 identities");
-for (const configVersion of [1, 4, "3", null]) {
+assert.equal(identityShaV3, "2e966a4723ee2e3cc5dfbb6f4ed7ac80bfab55109f9df86c4f139b8df04f4d80", "v3 identity SHA remains locked");
+assert.equal(identityShaV4, "6251053c644f192c80355ad7ee2be5c9f1f08442977c0b010343b54e9ef04160", "v4 identity SHA is locked");
+assert.equal(new Set([identityShaV2, identityShaV3, identityShaV4]).size, 3, "analogous v2/v3/v4 configs have distinct SHA-256 identities");
+for (const configVersion of [1, 5, "4", null]) {
   assert.throws(() => equipmentConfigIdentityInput({
     configSchema: "aerobeat/equipment_config",
     configVersion,

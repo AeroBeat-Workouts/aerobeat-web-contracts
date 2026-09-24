@@ -373,7 +373,7 @@ export function resolveGloveObb(value) {
 }
 
 /**
- * Stable canonical UTF-8 hash input for exact equipment-config versions 2 and 3.
+ * Stable canonical UTF-8 hash input for exact equipment-config versions 2, 3, and 4.
  * The config must already be canonical JSON; this wrapper locks its truthful
  * schema/version plus geometry identities into score identity.
  * @param {unknown} input
@@ -382,7 +382,7 @@ export function resolveGloveObb(value) {
 export function equipmentConfigIdentityInput(input) {
   if (!hasExactKeys(input, ["configSchema", "configVersion", "canonicalConfigJson"]) ||
       input.configSchema !== "aerobeat/equipment_config" ||
-      (input.configVersion !== 2 && input.configVersion !== 3) ||
+      ![2, 3, 4].includes(input.configVersion) ||
       !isNonEmptyString(input.canonicalConfigJson)) throw new TypeError("equipment_config_identity_input_invalid");
   let parsed;
   try {
