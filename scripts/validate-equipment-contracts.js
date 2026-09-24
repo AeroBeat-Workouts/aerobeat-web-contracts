@@ -1,6 +1,7 @@
 // @ts-check
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   canonicalEquipmentQuaternionBytes,
   canonicalizeEquipmentQuaternion,
@@ -263,12 +264,37 @@ assertDeepFrozen(saberCapsuleGeometry, "canonical saber descriptor is deeply fro
 assertDeepFrozen(gloveObbGeometry, "canonical glove descriptor is deeply frozen");
 
 const canonicalConfigJson = '{"a":1,"z":{"b":2}}';
-const identityInput = equipmentConfigIdentityInput({
+const identityInputV2 = equipmentConfigIdentityInput({
   configSchema: "aerobeat/equipment_config",
   configVersion: 2,
   canonicalConfigJson
 });
-assert.equal(identityInput, '{"schema":"aerobeat/equipment_config_identity_input","version":1,"configSchema":"aerobeat/equipment_config","configVersion":2,"geometryIdentities":["aerobeat/saber_capsule_v1","aerobeat/glove_obb_v1"],"canonicalConfigJson":"{\\"a\\":1,\\"z\\":{\\"b\\":2}}"}');
+const identityInputV3 = equipmentConfigIdentityInput({
+  configSchema: "aerobeat/equipment_config",
+  configVersion: 3,
+  canonicalConfigJson
+});
+assert.equal(identityInputV2, '{"schema":"aerobeat/equipment_config_identity_input","version":1,"configSchema":"aerobeat/equipment_config","configVersion":2,"geometryIdentities":["aerobeat/saber_capsule_v1","aerobeat/glove_obb_v1"],"canonicalConfigJson":"{\\"a\\":1,\\"z\\":{\\"b\\":2}}"}', "v2 identity bytes remain unchanged");
+assert.equal(identityInputV3, '{"schema":"aerobeat/equipment_config_identity_input","version":1,"configSchema":"aerobeat/equipment_config","configVersion":3,"geometryIdentities":["aerobeat/saber_capsule_v1","aerobeat/glove_obb_v1"],"canonicalConfigJson":"{\\"a\\":1,\\"z\\":{\\"b\\":2}}"}', "v3 identity records truthful configVersion 3");
+assert.notEqual(identityInputV2, identityInputV3, "otherwise analogous v2/v3 configs have distinct identity bytes");
+const identityShaV2 = createHash("sha256").update(identityInputV2, "utf8").digest("hex");
+const identityShaV3 = createHash("sha256").update(identityInputV3, "utf8").digest("hex");
+assert.equal(identityShaV2, "2a8bdbcc16e4d7b0222eb3ebcc389b822ad865eaffd16663dcc3bc98cec1521e", "v2 identity SHA remains locked");
+assert.equal(identityShaV3, "2e966a4723ee2e3cc5dfbb6f4ed7ac80bfab55109f9df86c4f139b8df04f4d80", "v3 identity SHA is locked");
+assert.notEqual(identityShaV2, identityShaV3, "otherwise analogous v2/v3 configs have distinct SHA-256 identities");
+for (const configVersion of [1, 4, "3", null]) {
+  assert.throws(() => equipmentConfigIdentityInput({
+    configSchema: "aerobeat/equipment_config",
+    configVersion,
+    canonicalConfigJson
+  }), /equipment_config_identity_input_invalid/u, `config version ${String(configVersion)} rejects`);
+}
+assert.throws(() => equipmentConfigIdentityInput({
+  configSchema: "aerobeat/equipment_config",
+  configVersion: 3,
+  canonicalConfigJson,
+  extra: true
+}), /equipment_config_identity_input_invalid/u, "identity input rejects extra keys");
 assert.equal(isEquipmentConfigIdentity(configIdentity), true);
 assert.deepEqual(createEquipmentConfigIdentity(configIdentity), configIdentity);
 assertDeepFrozen(createEquipmentConfigIdentity(configIdentity), "config identity is deeply frozen");
