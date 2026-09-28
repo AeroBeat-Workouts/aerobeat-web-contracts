@@ -22,3 +22,4 @@ export * from "./host-contracts.js";
 export * from "./iframe-contracts.js";
 export * from "./equipment-contracts.js";
 export * from "./equipment-pose-contracts.js";
+export * from "./collider-contracts.js";
