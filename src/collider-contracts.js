@@ -33,15 +33,14 @@ export function isColliderSettings(value) {
 }
 
 /**
- * Strictly normalize a partial settings record for one mode. Missing fields use
- * defaults; unknown fields and explicit undefined, null, NaN, or infinity fail.
- * Depth factors are >= 1: 1 keeps the base depth, 2 doubles it.
+ * Strictly normalize a flat four-field settings record for either mode. Missing
+ * fields use the shared defaults; unknown fields (including a per-mode map) and
+ * explicit undefined, null, NaN, or infinity fail. Depth factors are >= 1:
+ * 1 keeps the base depth, 2 doubles it.
  * @param {unknown} value
- * @param {AeroColliderMode} mode
  * @returns {AeroColliderSettings}
  */
-export function normalizeColliderSettings(value, mode) {
-  if (mode !== "flow" && mode !== "boxing") throw new TypeError("collider_mode_invalid");
+export function normalizeColliderSettings(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value) ||
       (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) {
     throw new TypeError("collider_settings_invalid");
@@ -53,7 +52,7 @@ export function normalizeColliderSettings(value, mode) {
       !("value" in Object.getOwnPropertyDescriptor(value, key)))) {
     throw new TypeError("collider_settings_invalid");
   }
-  const settings = { ...colliderSettingsDefaults[mode], ...value };
+  const settings = { ...defaultSettings, ...value };
   if (!isColliderSettings(settings)) throw new TypeError("collider_settings_invalid");
   return Object.freeze(settings);
 }

@@ -20,10 +20,13 @@ for (const mode of ["flow", "boxing"]) {
     colliderVisible: false, colliderScale: 1, colliderDepthForward: 1, colliderDepthBackward: 1
   });
   assert.equal(Object.isFrozen(colliderSettingsDefaults[mode]), true);
-  assert.deepEqual(normalizeColliderSettings({}, mode), colliderSettingsDefaults[mode]);
+  assert.deepEqual(normalizeColliderSettings({}), colliderSettingsDefaults[mode]);
 }
-const flow = normalizeColliderSettings({ colliderVisible: true, colliderScale: 2, colliderDepthForward: 3 }, "flow");
-const boxing = normalizeColliderSettings({ colliderDepthBackward: 2 }, "boxing");
+assert.deepEqual(normalizeColliderSettings({ colliderVisible: true, colliderScale: 2, colliderDepthForward: 3, colliderDepthBackward: 4 }), {
+  colliderVisible: true, colliderScale: 2, colliderDepthForward: 3, colliderDepthBackward: 4
+});
+const flow = normalizeColliderSettings({ colliderVisible: true, colliderScale: 2, colliderDepthForward: 3 });
+const boxing = normalizeColliderSettings({ colliderDepthBackward: 2 });
 assert.equal(isColliderSettings(flow), true);
 assert.equal(colliderSettingsDefaults.flow.colliderVisible, false);
 assert.equal(colliderSettingsDefaults.boxing.colliderDepthBackward, 1);
@@ -44,11 +47,11 @@ for (const bad of [
   { colliderScale: NaN }, { colliderScale: Infinity }, { colliderScale: null },
   { colliderDepthForward: 0.9 }, { colliderDepthBackward: -1 },
   { colliderVisible: undefined }, { extra: true },
+  { flow: colliderSettingsDefaults.flow, boxing: colliderSettingsDefaults.boxing },
   Object.defineProperty({}, "colliderScale", { get: () => 1, enumerable: true })
 ]) {
-  assert.throws(() => normalizeColliderSettings(bad, "flow"), TypeError);
+  assert.throws(() => normalizeColliderSettings(bad), TypeError);
 }
-assert.throws(() => normalizeColliderSettings({}, "other"), TypeError);
 for (const bad of [
   { ...input, extra: 1 }, { ...input, center: { x: 0, y: 0, z: Infinity } },
   { ...input, halfWidth: 0 }, { ...input, halfHeight: NaN },
