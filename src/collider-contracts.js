@@ -96,7 +96,11 @@ export function resolveColliderBounds(input) {
                 !isFiniteNumber(input.speedWuPerMs) || input.speedWuPerMs <= 0)) {
     throw new TypeError("collider_bounds_input_invalid");
   }
-  const depth = timed ? input.timingWindowMs * input.speedWuPerMs : colliderDefaultDepthWu;
+  // Keep the arithmetic operands narrowed: the `timed` boolean alone cannot
+  // carry the numeric guard above through TypeScript's checkJs analysis.
+  const depth = isFiniteNumber(input.timingWindowMs) && isFiniteNumber(input.speedWuPerMs)
+    ? input.timingWindowMs * input.speedWuPerMs
+    : colliderDefaultDepthWu;
   const halfWidth = input.halfWidth * input.settings.colliderScale;
   const halfHeight = input.halfHeight * input.settings.colliderScale;
   const result = {
