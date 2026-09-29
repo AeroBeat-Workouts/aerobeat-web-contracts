@@ -3,7 +3,7 @@
 import { hasExactKeys, isFiniteNumber } from "./contract-guards.js";
 
 /** @typedef {"flow" | "boxing"} AeroColliderMode */
-/** @typedef {Readonly<{colliderVisible: boolean, colliderScale: number, colliderDepthForward: number, colliderDepthBackward: number}>} AeroColliderSettings */
+/** @typedef {Readonly<{colliderVisible: boolean, colliderScale: number, colliderDepthForward: number, colliderDepthBackward: number, visibleWristObstacleRadius: boolean, wristBombColliderScale: number}>} AeroColliderSettings */
 /** @typedef {Readonly<{x: number, y: number, z: number}>} AeroColliderPoint */
 /** @typedef {Readonly<{minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number}>} AeroColliderBounds */
 
@@ -14,7 +14,9 @@ const defaultSettings = Object.freeze({
   colliderVisible: false,
   colliderScale: 1,
   colliderDepthForward: 1,
-  colliderDepthBackward: 1
+  colliderDepthBackward: 1,
+  visibleWristObstacleRadius: false,
+  wristBombColliderScale: 1
 });
 
 /** Independent per-mode defaults; neither a rendering toggle nor depth modifies the equipment hit geometry. */
@@ -25,18 +27,21 @@ export const colliderSettingsDefaults = Object.freeze({
 
 /** @param {unknown} value @returns {value is AeroColliderSettings} */
 export function isColliderSettings(value) {
-  return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward"]) &&
+  return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
     typeof value.colliderVisible === "boolean" &&
     isFiniteNumber(value.colliderScale) && value.colliderScale > 0 &&
     isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 1 &&
-    isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 1;
+    isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 1 &&
+    typeof value.visibleWristObstacleRadius === "boolean" &&
+    isFiniteNumber(value.wristBombColliderScale) && value.wristBombColliderScale >= 0 && value.wristBombColliderScale <= 2;
 }
 
 /**
- * Strictly normalize a flat four-field settings record for either mode. Missing
+ * Strictly normalize a flat six-field settings record for either mode. Missing
  * fields use the shared defaults; unknown fields (including a per-mode map) and
  * explicit undefined, null, NaN, or infinity fail. Depth factors are >= 1:
- * 1 keeps the base depth, 2 doubles it.
+ * 1 keeps the base depth, 2 doubles it. Wrist bomb radius visibility and its
+ * continuous 0..2 scale are independent of the equipment collider settings.
  * @param {unknown} value
  * @returns {AeroColliderSettings}
  */
@@ -45,7 +50,7 @@ export function normalizeColliderSettings(value) {
       (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) {
     throw new TypeError("collider_settings_invalid");
   }
-  const keys = ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward"];
+  const keys = ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"];
   const ownKeys = Reflect.ownKeys(value);
   if (ownKeys.some((key) => typeof key !== "string" || !keys.includes(key) ||
       !Object.getOwnPropertyDescriptor(value, key)?.enumerable ||
