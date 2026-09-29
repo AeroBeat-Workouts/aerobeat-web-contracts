@@ -34,6 +34,12 @@ for (const scale of [0, 0.25, 1.5, 2]) {
   assert.equal(wristSettings.colliderVisible, false);
   assert.equal(wristSettings.colliderScale, 1);
   assert.equal(isColliderSettings(wristSettings), true);
+  const equipmentBounds = resolveColliderBounds({
+    mode: "flow", center: { x: 3, y: 2, z: 0 }, halfWidth: 0.4, halfHeight: 0.2, settings: wristSettings
+  });
+  assert.deepEqual(equipmentBounds, {
+    minX: 2.6, maxX: 3.4, minY: 1.8, maxY: 2.2, minZ: -1.08, maxZ: 1.08
+  });
 }
 const flow = normalizeColliderSettings({ colliderVisible: true, colliderScale: 2, colliderDepthForward: 3 });
 const boxing = normalizeColliderSettings({ colliderDepthBackward: 2 });
