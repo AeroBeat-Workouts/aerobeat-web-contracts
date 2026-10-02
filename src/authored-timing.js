@@ -76,9 +76,11 @@ export function isAuthoredSongTiming(value) {
     previousBeat = Number(segment.startBeat);
   }
 
-  for (const checkpoints of [value.tempoSegments, value.stopSegments, value.timeSignatureSegments]) {
+  // Each segment was admitted above; use those narrowed shapes for cross-list checkpoints.
+  const timing = /** @type {AeroAuthoredSongTiming} */ (value);
+  for (const checkpoints of [timing.tempoSegments, timing.stopSegments, timing.timeSignatureSegments]) {
     for (const checkpoint of checkpoints) {
-      if (timelineAtBeat(value.anchorMs, value.tempoSegments, value.stopSegments, Number(checkpoint.startBeat)) > maximumAuthoredTimelineMs) return false;
+      if (timelineAtBeat(timing.anchorMs, timing.tempoSegments, timing.stopSegments, checkpoint.startBeat) > maximumAuthoredTimelineMs) return false;
     }
   }
   return true;
@@ -145,7 +147,7 @@ function isBoundedTimelineNumber(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= maximumAuthoredTimelineMs;
 }
 
-/** @param {unknown} value */
+/** @param {unknown} value @returns {value is number} */
 function isBoundedBeat(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER;
 }

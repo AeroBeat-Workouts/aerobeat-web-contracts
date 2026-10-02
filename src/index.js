@@ -8,7 +8,12 @@ export * from "./coordinate-spaces.js";
 export * from "./pose-shapes.js";
 export * from "./pose-adapter.js";
 export * from "./body-grid-contracts.js";
-export * from "./input-shapes.js";
+export { inputContractsId } from "./input-shapes.js";
+/** @typedef {import("./input-shapes.js").BoxingInputIntentName} BoxingInputIntentName */
+/** @typedef {import("./input-shapes.js").BoxingInputEvent} BoxingInputEvent */
+/** @typedef {import("./input-shapes.js").FlowIntentKind} FlowIntentKind */
+/** @typedef {import("./input-shapes.js").FlowInputEvent} FlowInputEvent */
+// BodyGridAnchorName comes from pose-shapes at the root; the input subpath retains its alias.
 export * from "./session-contracts.js";
 export * from "./gameplay-contracts.js";
 export * from "./obstacle-contracts.js";

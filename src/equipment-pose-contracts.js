@@ -382,7 +382,7 @@ export function resolveGloveObb(value) {
 export function equipmentConfigIdentityInput(input) {
   if (!hasExactKeys(input, ["configSchema", "configVersion", "canonicalConfigJson"]) ||
       input.configSchema !== "aerobeat/equipment_config" ||
-      ![2, 3, 4].includes(input.configVersion) ||
+      (typeof input.configVersion !== "number" || ![2, 3, 4].includes(input.configVersion)) ||
       !isNonEmptyString(input.canonicalConfigJson)) throw new TypeError("equipment_config_identity_input_invalid");
   let parsed;
   try {
