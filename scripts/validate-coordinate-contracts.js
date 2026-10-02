@@ -270,6 +270,37 @@ for (const invalid of [
   { ...crouchWall, coordinateSpace: "beatsaber_lane_layer" }
 ]) assert.equal(isObstacleGameplayGeometry(invalid), false);
 assert.equal(isObstacleSourceGeometry({ ...sourceCrouchWall, coordinateSpace: "beatsaber_v3_obstacle_rect" }), false, "source format/kind conflicts reject");
+for (const source of [
+  { ...sourceCrouchWall, x: -2, y: 2, width: 3, height: 1 }, // Map 54510: clipped gameplay cell 0.
+  { ...sourceCrouchWall, y: -3, height: 4 },
+  { ...sourceCrouchWall, x: 4, y: 3 },
+  { ...sourceCrouchWall, x: -5, y: -5, width: 10, height: 10 },
+  { ...sourceCrouchWall, x: Number.MIN_SAFE_INTEGER, width: Number.MAX_SAFE_INTEGER }
+]) assert.equal(isObstacleSourceGeometry(source), true, "exact safe off-grid source evidence accepts");
+const clippedWall = { ...crouchWall, x: 0, y: 0, width: 1, height: 1 };
+assert.equal(isObstacleGameplayGeometry(clippedWall), true);
+assert.deepEqual(deriveObstacleGridMask(clippedWall), [0]);
+assert.equal(isObstacleGridMask([0], clippedWall), true);
+assert.equal(isObstacleGridMask([1], clippedWall), false);
+for (const invalid of [
+  { ...sourceCrouchWall, width: 0 }, { ...sourceCrouchWall, height: -1 },
+  { ...sourceCrouchWall, x: 0.5 }, { ...sourceCrouchWall, y: -1.5 },
+  { ...sourceCrouchWall, width: 1.5 }, { ...sourceCrouchWall, height: 1.5 },
+  { ...sourceCrouchWall, x: Number.MAX_SAFE_INTEGER + 1 },
+  { ...sourceCrouchWall, y: Number.MIN_SAFE_INTEGER - 1 },
+  { ...sourceCrouchWall, width: Number.MAX_SAFE_INTEGER + 1 },
+  { ...sourceCrouchWall, height: Number.MAX_SAFE_INTEGER + 1 },
+  { ...sourceCrouchWall, x: Number.MAX_SAFE_INTEGER, width: 2 },
+  { ...sourceCrouchWall, y: Number.MAX_SAFE_INTEGER, height: 2 },
+  { ...sourceCrouchWall, extra: true },
+  { ...sourceCrouchWall, kind: "v3_rect" },
+  { ...sourceCrouchWall, coordinateSpace: "aerobeat_top_left_grid" }
+]) assert.equal(isObstacleSourceGeometry(invalid), false, "invalid source geometry rejects");
+let sourceAccessorCalled = false;
+const accessorSource = { ...sourceCrouchWall };
+Object.defineProperty(accessorSource, "x", { enumerable: true, get() { sourceAccessorCalled = true; return -2; } });
+assert.equal(isObstacleSourceGeometry(accessorSource), false);
+assert.equal(sourceAccessorCalled, false);
 let geometryAccessorCalled = false;
 const accessorGeometry = { ...crouchWall };
 Object.defineProperty(accessorGeometry, "x", { enumerable: true, get() { geometryAccessorCalled = true; return 1; } });

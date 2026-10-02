@@ -42,7 +42,11 @@ export function isObstacleSourceGeometry(value) {
   if (value.schema !== "aerobeat/obstacle_source_geometry" || value.version !== 1) return false;
   const pair = `${value.coordinateSpace}|${value.kind}`;
   if (!["beatsaber_v2_legacy_obstacle|v2_type_0", "beatsaber_v2_legacy_obstacle|v2_type_1", "beatsaber_v3_obstacle_rect|v3_rect", "beatsaber_v4_obstacle_rect|v4_rect"].includes(pair)) return false;
-  return integer(value.x, 0, 3) && integer(value.y, 0, 2) && integer(value.width, 1, 4) && integer(value.height, 1, 5) && Number(value.x) + Number(value.width) <= 4 && Number(value.y) + Number(value.height) <= 5;
+  return typeof value.x === "number" && Number.isSafeInteger(value.x) &&
+    typeof value.y === "number" && Number.isSafeInteger(value.y) &&
+    typeof value.width === "number" && Number.isSafeInteger(value.width) && value.width > 0 &&
+    typeof value.height === "number" && Number.isSafeInteger(value.height) && value.height > 0 &&
+    Number.isSafeInteger(value.x + value.width) && Number.isSafeInteger(value.y + value.height);
 }
 
 /** @param {unknown} value @returns {value is AeroObstacleGameplayGeometry} */
