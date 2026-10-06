@@ -51,17 +51,36 @@ export function isObstacleSourceGeometry(value) {
 
 /** @param {unknown} value @returns {value is AeroObstacleGameplayGeometry} */
 export function isObstacleGameplayGeometry(value) {
-  return hasExactKeys(value, ["schema", "version", "coordinateSpace", "x", "y", "width", "height"]) &&
-    value.schema === "aerobeat/obstacle_gameplay_geometry" && value.version === 1 && value.coordinateSpace === "aerobeat_top_left_grid" &&
-    integer(value.x, 0, 3) && integer(value.y, 0, 2) && integer(value.width, 1, 4) && integer(value.height, 1, 3) &&
-    Number(value.x) + Number(value.width) <= 4 && Number(value.y) + Number(value.height) <= 3;
+  if (!hasExactKeys(value, ["schema", "version", "coordinateSpace", "x", "y", "width", "height"])) return false;
+  if (value.schema !== "aerobeat/obstacle_gameplay_geometry" || value.version !== 1 || value.coordinateSpace !== "aerobeat_top_left_grid") return false;
+  // X remains a whole column in the canonical 4-wide grid. Y and height may be
+  // fractional and may extend above the grid (negative Y) so obstacles such as
+  // the 4.5-row-tall boxing squat can be authored. The rect must still begin
+  // and end on finite coordinates within the extended authoring band.
+  const x = Number(value.x), y = Number(value.y), width = Number(value.width), height = Number(value.height);
+  if (!Number.isInteger(x) || x < 0 || x > 3) return false;
+  if (typeof value.y !== "number" || !Number.isFinite(y)) return false;
+  if (!Number.isInteger(width) || width < 1 || width > 4) return false;
+  if (typeof value.height !== "number" || !Number.isFinite(height) || height <= 0) return false;
+  // The rect must cover at least part of the canonical 4x3 grid and must not
+  // extend more than 3 rows above the top (y = -3) nor more than 0.5 rows below
+  // the bottom of the covered band.
+  if (x + width > 4) return false;
+  if (y < -3) return false;
+  if (y + height > 3.5) return false;
+  return y + height > 0;
 }
 
 /** @param {AeroObstacleGameplayGeometry} geometry @returns {readonly number[]} */
 export function deriveObstacleGridMask(geometry) {
   if (!isObstacleGameplayGeometry(geometry)) throw new TypeError("obstacle_gameplay_geometry_invalid");
+  // Clamp the authored rect to the canonical 4x3 grid so the occupancy mask only
+  // includes cells that exist. Rows above the grid (y < 0) contribute no cells;
+  // a fractional bottom row is counted if it intrudes on the last in-grid row.
+  const startRow = Math.max(0, Math.ceil(geometry.y));
+  const endRow = Math.min(3, Math.floor(geometry.y + geometry.height));
   const cells = [];
-  for (let row = geometry.y; row < geometry.y + geometry.height; row += 1) {
+  for (let row = startRow; row < endRow; row += 1) {
     for (let column = geometry.x; column < geometry.x + geometry.width; column += 1) cells.push(row * 4 + column);
   }
   return Object.freeze(cells);
