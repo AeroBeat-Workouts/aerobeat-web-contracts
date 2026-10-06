@@ -419,6 +419,7 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  * @property {number | null} timingOffsetMs Evidence minus beat center.
  * @property {readonly AeroJudgementDiagnosticCode[]} diagnostics Detailed diagnostics.
  * @property {boolean} shadow Whether this judgement is diagnostic-only.
+ * @property {"great" | "good" | "almost" | "miss" | "ignored"} [tier] Resolved 0.0.94 scoring tier; presentation truth the renderer reads to choose the Great/Good/Almost/Miss feedback label. Absent on legacy records.
  */
 
 /**
@@ -645,7 +646,12 @@ export function isGameplayJudgement(value) {
  * @returns {value is AeroGameplayJudgementV2}
  */
 export function isGameplayJudgementV2(value) {
-  const fields = ["schema", "version", "sessionPurpose", "eventId", "rulesetId", "recipeId", "result", "beatCenterTimestampMs", "committedTimelinePositionMs", "evidenceTimestampMs", "timingOffsetMs", "diagnostics", "shadow"];
+  const baseFields = ["schema", "version", "sessionPurpose", "eventId", "rulesetId", "recipeId", "result", "beatCenterTimestampMs", "committedTimelinePositionMs", "evidenceTimestampMs", "timingOffsetMs", "diagnostics", "shadow"];
+  // 0.0.96: tier is an optional presentation field on the judgement record.
+  // Accept it as an additional key when present; legacy records lack it.
+  const keys = isRecord(value) ? Reflect.ownKeys(value) : [];
+  const hasTier = keys.includes("tier");
+  const fields = hasTier ? [...baseFields, "tier"] : baseFields;
   return hasExactKeys(value, fields) &&
     value.schema === "aerobeat/gameplay_judgement" &&
     value.version === 2 &&
@@ -659,7 +665,8 @@ export function isGameplayJudgementV2(value) {
     (value.evidenceTimestampMs === null || isNonNegativeFiniteNumber(value.evidenceTimestampMs)) &&
     (value.timingOffsetMs === null || (typeof value.timingOffsetMs === "number" && Number.isFinite(value.timingOffsetMs))) &&
     isExactDiagnosticList(value.diagnostics) &&
-    typeof value.shadow === "boolean";
+    typeof value.shadow === "boolean" &&
+    (!hasTier || value.tier === "great" || value.tier === "good" || value.tier === "almost" || value.tier === "miss" || value.tier === "ignored");
 }
 
 /**
