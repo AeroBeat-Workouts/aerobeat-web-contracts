@@ -391,7 +391,7 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  * @property {string} eventId Authored event identity.
  * @property {AeroRulesetId} rulesetId Ruleset identity.
  * @property {AeroConversionRecipeId | null} recipeId Recipe identity when generated.
- * @property {"hit" | "miss" | "ignored"} result Binary prototype result or non-scoring ignored event.
+ * @property {"great" | "good" | "almost" | "miss" | "ignored" | "hit"} result Four-tier scoring result (or non-scoring ignored event); legacy "hit" remains accepted.
  * @property {number} beatCenterTimestampMs Event center timestamp.
  * @property {number | null} evidenceTimestampMs Consumed evidence timestamp.
  * @property {number | null} timingOffsetMs Evidence minus beat center.
@@ -412,7 +412,7 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  * @property {string} eventId Authored event identity.
  * @property {AeroRulesetId} rulesetId Ruleset identity.
  * @property {AeroConversionRecipeId | null} recipeId Recipe identity when generated.
- * @property {"hit" | "miss" | "ignored"} result Binary prototype result or non-scoring ignored event.
+ * @property {"great" | "good" | "almost" | "miss" | "ignored" | "hit"} result Four-tier scoring result (or non-scoring ignored event); legacy "hit" remains accepted.
  * @property {number} beatCenterTimestampMs Event center timestamp.
  * @property {number} committedTimelinePositionMs Authoritative song timeline position at result commitment.
  * @property {number | null} evidenceTimestampMs Consumed evidence timestamp.
@@ -632,7 +632,7 @@ export function isGameplayJudgement(value) {
     isNonEmptyString(value.eventId) &&
     isOneOf(value.rulesetId, rulesetIds) &&
     (value.recipeId === null || isOneOf(value.recipeId, conversionRecipeIds)) &&
-    (value.result === "hit" || value.result === "miss" || value.result === "ignored") &&
+    (value.result === "great" || value.result === "good" || value.result === "almost" || value.result === "miss" || value.result === "ignored" || value.result === "hit") &&
     isNonNegativeFiniteNumber(value.beatCenterTimestampMs) &&
     (value.evidenceTimestampMs === null || isNonNegativeFiniteNumber(value.evidenceTimestampMs)) &&
     (value.timingOffsetMs === null || (typeof value.timingOffsetMs === "number" && Number.isFinite(value.timingOffsetMs))) &&
@@ -653,7 +653,7 @@ export function isGameplayJudgementV2(value) {
     isBoundedNonEmptyString(value.eventId, 512) &&
     isOneOf(value.rulesetId, rulesetIds) &&
     (value.recipeId === null || isOneOf(value.recipeId, conversionRecipeIds)) &&
-    (value.result === "hit" || value.result === "miss" || value.result === "ignored") &&
+    (value.result === "great" || value.result === "good" || value.result === "almost" || value.result === "miss" || value.result === "ignored" || value.result === "hit") &&
     isNonNegativeFiniteNumber(value.beatCenterTimestampMs) &&
     isNonNegativeFiniteNumber(value.committedTimelinePositionMs) &&
     (value.evidenceTimestampMs === null || isNonNegativeFiniteNumber(value.evidenceTimestampMs)) &&

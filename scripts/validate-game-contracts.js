@@ -619,8 +619,13 @@ for (const invalid of [
   { ...committedJudgement, committedTimelinePositionMs: Number.POSITIVE_INFINITY },
   { ...committedJudgement, diagnostics: ["no_input", "no_input"] },
   { ...committedJudgement, synthetic: true },
-  { ...committedJudgement, result: "great" }
+  { ...committedJudgement, result: "perfect" }
 ]) assert.equal(isGameplayJudgementV2(invalid), false, "synthetic, ambiguous, or unbounded judgement truth rejects");
+// 4-tier scoring results are accepted; the legacy "hit" alias is also accepted.
+assert.equal(isGameplayJudgementV2({ ...committedJudgement, result: "great" }), true, "4-tier great result accepts");
+assert.equal(isGameplayJudgementV2({ ...committedJudgement, result: "good" }), true, "4-tier good result accepts");
+assert.equal(isGameplayJudgementV2({ ...committedJudgement, result: "almost" }), true, "4-tier almost result accepts");
+assert.equal(isGameplayJudgementV2({ ...committedJudgement, result: "hit" }), true, "legacy hit result still accepts");
 const missingCommitment = { ...committedJudgement }; Reflect.deleteProperty(missingCommitment, "committedTimelinePositionMs");
 assert.equal(isGameplayJudgementV2(missingCommitment), false);
 let judgementAccessorCalled = false;
