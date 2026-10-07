@@ -23,7 +23,7 @@ import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contr
  */
 
 /**
- * @typedef {"no_input" | "stale_input" | "wrong_collider" | "wrong_cell" | "wrong_subcell" | "wrong_direction" | "qualification_too_short" | "tracking_invalid" | "calibration_mismatch" | "timing_miss" | "blocked_overlap" | "action_consumed"} AeroJudgementDiagnosticCode
+ * @typedef {"no_input" | "stale_input" | "wrong_collider" | "wrong_cell" | "wrong_subcell" | "wrong_direction" | "qualification_too_short" | "tracking_invalid" | "calibration_mismatch" | "timing_miss" | "blocked_overlap" | "action_consumed" | "near_timing"} AeroJudgementDiagnosticCode
  */
 
 /**
@@ -550,7 +550,8 @@ export const judgementDiagnosticCodes = Object.freeze([
   "calibration_mismatch",
   "timing_miss",
   "blocked_overlap",
-  "action_consumed"
+  "action_consumed",
+  "near_timing"
 ]);
 
 /** Maximum value accepted for each public Flow Colliders aggregate count. */
