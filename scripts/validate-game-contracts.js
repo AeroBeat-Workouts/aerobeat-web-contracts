@@ -290,8 +290,8 @@ assert.deepEqual(normalizeBoxingColliderSetupFields(setupRoundTrip), setupRoundT
 assert(Object.isFrozen(normalizeBoxingColliderSetupFields(exactSetupFields)), "normalized wave-0 setup fields are frozen");
 assert.deepEqual(obstacleResults, ["contact", "avoided", "unevaluated_tracking"]);
 assert.deepEqual(conversionRecipeIds, ["row_family_balanced_height_v1", "cut_family_source_height_v1"]);
-assert.equal(mapModifierIds.includes("crossed_guard"), true);
-assert.equal(boxingActions.includes("crossed_guard"), true);
+assert.deepEqual(mapModifierIds, ["no_squats", "no_weaves", "any_punch", "cross_body", "no_obstacles", "obstacle_visual_only"], "only the supported map modifiers remain");
+assert.deepEqual(boxingActions, ["straight_left", "straight_right", "hook_left", "hook_right", "uppercut_left", "uppercut_right", "guard", "squat", "weave_left", "weave_right"], "ordinary guard and all other Boxing actions remain");
 assert.equal(prototypeJudgementDefaults.timingWindowBeforeMs, 180);
 assert.equal(prototypeJudgementDefaults.checkpointFreshnessMs, 150);
 assert.equal(prototypeJudgementDefaults.straightQualificationMs, 100);
@@ -354,18 +354,24 @@ assert.equal(isGameplaySessionPurpose("play"), true);
 assert.equal(isGameplaySessionPurpose("visual_test"), true);
 assert.equal(isGameplaySessionPurpose("test"), false);
 
-assert.equal(isContentVariantIdentity({
+const variantIdentity = {
   schema: "aerobeat/content_variant_identity",
   version: 1,
   packageId: "pkg-1",
   chartId: "chart-1",
   rulesetId: "boxing_spatial_grid_v1",
   recipeId: "cut_family_source_height_v1",
-  modifierIds: ["crossed_guard"],
+  modifierIds: ["cross_body", "any_punch"],
   mapHash: sha256,
   scoreIdentityHash: sha256,
   ranked: false
-}), true);
+};
+assert.equal(isContentVariantIdentity(variantIdentity), true, "other supported modifiers remain valid");
+for (const invalid of ["crossed_guard", "CROSSED_GUARD", " crossed_guard", null, { id: "crossed_guard" }]) {
+  assert.equal(isContentVariantIdentity({ ...variantIdentity, modifierIds: [invalid] }), false, "removed guard modifier and untrusted aliases reject");
+}
+assert.equal(isContentVariantIdentity({ ...variantIdentity, modifierIds: ["cross_body", "crossed_guard"] }), false, "mixed supported/removed modifiers reject without rewriting signed map identity");
+assert.equal(isContentVariantIdentity({ ...variantIdentity, modifierIds: "cross_body" }), false, "modifier identities must be an array");
 
 assert.equal(isBeatSaverMapSummary({
   schema: "aerobeat/beatsaver_map_summary",
@@ -450,7 +456,7 @@ const anchor = {
   cell: 6,
   subcell: 28
 };
-assert.equal(isGameplayEvidenceSnapshot({
+const guardEvidence = {
   schema: "aerobeat/gameplay_evidence_snapshot",
   version: 1,
   calibrationId: "cal-1",
@@ -460,7 +466,13 @@ assert.equal(isGameplayEvidenceSnapshot({
   activeBoxingActions: ["guard", "squat"],
   anchors: [anchor],
   entries: []
-}), true);
+};
+assert.equal(isGameplayEvidenceSnapshot(guardEvidence), true, "ordinary guard remains valid alongside other actions");
+for (const invalid of ["crossed_guard", "CROSSED_GUARD", " crossed_guard", null, { action: "crossed_guard" }]) {
+  assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, activeBoxingActions: [invalid] }), false, "removed guard action and untrusted aliases reject");
+}
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, activeBoxingActions: ["guard", "crossed_guard"] }), false, "mixed ordinary/removed guard actions reject");
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, activeBoxingActions: "guard" }), false, "actions must be an array");
 const offGridAnchor = {
   ...anchor,
   rawX: -0.2,
