@@ -391,7 +391,7 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  * @property {string} eventId Authored event identity.
  * @property {AeroRulesetId} rulesetId Ruleset identity.
  * @property {AeroConversionRecipeId | null} recipeId Recipe identity when generated.
- * @property {"great" | "good" | "almost" | "miss" | "ignored" | "hit"} result Four-tier scoring result (or non-scoring ignored event); legacy "hit" remains accepted.
+ * @property {"great" | "good" | "almost" | "miss" | "ignored" | "hit"} result Historical result codes, including tier-like values; legacy "hit" remains accepted.
  * @property {number} beatCenterTimestampMs Event center timestamp.
  * @property {number | null} evidenceTimestampMs Consumed evidence timestamp.
  * @property {number | null} timingOffsetMs Evidence minus beat center.
@@ -412,14 +412,14 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  * @property {string} eventId Authored event identity.
  * @property {AeroRulesetId} rulesetId Ruleset identity.
  * @property {AeroConversionRecipeId | null} recipeId Recipe identity when generated.
- * @property {"great" | "good" | "almost" | "miss" | "ignored" | "hit"} result Four-tier scoring result (or non-scoring ignored event); legacy "hit" remains accepted.
+ * @property {"great" | "good" | "almost" | "miss" | "ignored" | "hit"} result Current scored Play records raw "hit"/"miss"/"ignored"; historical tier-like codes remain accepted.
  * @property {number} beatCenterTimestampMs Event center timestamp.
  * @property {number} committedTimelinePositionMs Authoritative song timeline position at result commitment.
  * @property {number | null} evidenceTimestampMs Consumed evidence timestamp.
  * @property {number | null} timingOffsetMs Evidence minus beat center.
  * @property {readonly AeroJudgementDiagnosticCode[]} diagnostics Detailed diagnostics.
  * @property {boolean} shadow Whether this judgement is diagnostic-only.
- * @property {"great" | "good" | "almost" | "miss" | "ignored"} [tier] Resolved 0.0.94 scoring tier; presentation truth the renderer reads to choose the Great/Good/Almost/Miss feedback label. Absent on legacy records.
+ * @property {"great" | "good" | "almost" | "miss" | "ignored"} [tier] Scoring/presentation tier: current Flow uses Great/Good/Miss, while "almost" remains a historical/non-Flow compatibility value. The renderer presents Great/Good/Miss; absent on legacy records.
  */
 
 /**
