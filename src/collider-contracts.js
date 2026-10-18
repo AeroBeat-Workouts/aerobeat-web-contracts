@@ -136,16 +136,20 @@ export function resolveColliderBounds(input) {
   const depth = isFiniteNumber(input.timingWindowMs) && isFiniteNumber(input.speedWuPerMs)
     ? input.timingWindowMs * input.speedWuPerMs
     : colliderDefaultDepthWu;
-  const halfWidth = input.halfWidth * input.settings.colliderScale;
-  const halfHeight = input.halfHeight * input.settings.colliderScale;
-  if (!Number.isFinite(halfWidth) || !Number.isFinite(halfHeight) || !Number.isFinite(depth * input.settings.colliderDepthForward) || !Number.isFinite(depth * input.settings.colliderDepthBackward)) throw new TypeError("collider_bounds_nonfinite");
+  // Narrow settings explicitly: TypeScript cannot retain the mode-specific
+  // conditional guard from the compound input check above.
+  const settings = input.settings;
+  if (!isFlowColliderSettings(settings) && !isColliderSettings(settings)) throw new TypeError("collider_bounds_input_invalid");
+  const halfWidth = input.halfWidth * settings.colliderScale;
+  const halfHeight = input.halfHeight * settings.colliderScale;
+  if (!Number.isFinite(halfWidth) || !Number.isFinite(halfHeight) || !Number.isFinite(depth * settings.colliderDepthForward) || !Number.isFinite(depth * settings.colliderDepthBackward)) throw new TypeError("collider_bounds_nonfinite");
   const result = {
     minX: input.center.x - halfWidth,
     maxX: input.center.x + halfWidth,
     minY: input.center.y - halfHeight,
     maxY: input.center.y + halfHeight,
-    minZ: input.center.z - depth * input.settings.colliderDepthForward,
-    maxZ: input.center.z + depth * input.settings.colliderDepthBackward
+    minZ: input.center.z - depth * settings.colliderDepthForward,
+    maxZ: input.center.z + depth * settings.colliderDepthBackward
   };
   if (!isColliderBounds(result)) throw new TypeError("collider_bounds_nonfinite");
   return Object.freeze(result);
