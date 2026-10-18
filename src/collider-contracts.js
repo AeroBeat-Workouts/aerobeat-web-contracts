@@ -29,7 +29,7 @@ export const colliderSettingsDefaults = Object.freeze({
 export function isColliderSettings(value) {
   return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
     typeof value.colliderVisible === "boolean" &&
-    isFiniteNumber(value.colliderScale) && value.colliderScale > 0 &&
+    isFiniteNumber(value.colliderScale) && value.colliderScale >= 0 &&
     isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 0 &&
     isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 0 &&
     typeof value.visibleWristObstacleRadius === "boolean" &&

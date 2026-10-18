@@ -58,7 +58,18 @@ for (const invalid of [-1, NaN, Infinity, -Infinity]) for (const key of ["collid
   assert.throws(() => normalizeFlowColliderSettings({ [key]: invalid }), TypeError, `reject ${key} ${invalid}`);
 }
 assert.throws(() => resolveColliderBounds({ mode: "flow", center: { x: 0, y: 0, z: 0 }, halfWidth: 2, halfHeight: 2, settings: normalizeFlowColliderSettings({ colliderScale: Number.MAX_VALUE }) }), /nonfinite/u, "finite input with unrepresentable derived target geometry fails truthfully");
-assert.equal(isColliderSettings(normalizeFlowColliderSettings({ colliderScale: 0, colliderDepthForward: 0 })), false, "Boxing scale remains strictly positive");
+assert.equal(isColliderSettings(normalizeFlowColliderSettings({ colliderScale: 0, colliderDepthForward: 0 })), true, "Boxing scale zero now shares Flow's finite nonnegative setting contract");
+for (const factor of [0, 0.00001, 0.5, 5, 9999999]) {
+  const settings = normalizeColliderSettings({ colliderScale: factor });
+  assert.equal(isColliderSettings(settings), true, `Boxing scale ${factor} is accepted`);
+  const bounds = resolveColliderBounds({ mode: "boxing", center: { x: 0, y: 0, z: 0 }, halfWidth: 0.5, halfHeight: 0.5, settings });
+  assert.equal(bounds.minX, factor === 0 ? 0 : -0.5 * factor, `Boxing scale ${factor} changes only target XY`);
+  assert.equal(bounds.maxX, 0.5 * factor);
+}
+for (const invalid of [-1, NaN, Infinity, -Infinity]) {
+  assert.throws(() => normalizeColliderSettings({ colliderScale: invalid }), TypeError);
+  assert.equal(isColliderSettings({ ...colliderSettingsDefaults.boxing, colliderScale: invalid }), false);
+}
 for (const key of ["colliderDepthForward", "colliderDepthBackward"]) {
   for (const factor of [0, 0.00001, 0.5, 5, 9999999]) {
     const settings = normalizeColliderSettings({ [key]: factor });
@@ -88,7 +99,7 @@ assert.deepEqual(resolveColliderBounds({ ...input, mode: "boxing", settings: box
   minX: 2.6, maxX: 3.4, minY: 1.8, maxY: 2.2, minZ: -1, maxZ: 2
 });
 for (const bad of [
-  null, [], "flow", { colliderVisible: "true" }, { colliderScale: 0 },
+  null, [], "flow", { colliderVisible: "true" }, { colliderScale: -1 },
   { colliderScale: NaN }, { colliderScale: Infinity }, { colliderScale: null },
   { colliderDepthForward: -1 }, { colliderDepthBackward: -1 },
   { colliderVisible: undefined }, { visibleWristObstacleRadius: "true" },
