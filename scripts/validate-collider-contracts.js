@@ -58,7 +58,21 @@ for (const invalid of [-1, NaN, Infinity, -Infinity]) for (const key of ["collid
   assert.throws(() => normalizeFlowColliderSettings({ [key]: invalid }), TypeError, `reject ${key} ${invalid}`);
 }
 assert.throws(() => resolveColliderBounds({ mode: "flow", center: { x: 0, y: 0, z: 0 }, halfWidth: 2, halfHeight: 2, settings: normalizeFlowColliderSettings({ colliderScale: Number.MAX_VALUE }) }), /nonfinite/u, "finite input with unrepresentable derived target geometry fails truthfully");
-assert.equal(isColliderSettings(normalizeFlowColliderSettings({ colliderScale: 0, colliderDepthForward: 0 })), false, "Boxing/shared legacy guard stays strict");
+assert.equal(isColliderSettings(normalizeFlowColliderSettings({ colliderScale: 0, colliderDepthForward: 0 })), false, "Boxing scale remains strictly positive");
+for (const key of ["colliderDepthForward", "colliderDepthBackward"]) {
+  for (const factor of [0, 0.00001, 0.5, 5, 9999999]) {
+    const settings = normalizeColliderSettings({ [key]: factor });
+    assert.equal(settings[key], factor, `Boxing ${key} retains ${factor}`);
+    assert.equal(isColliderSettings(settings), true);
+    const extent = resolveColliderBounds({ mode: "boxing", center: { x: 0, y: 0, z: 0 }, halfWidth: 0.5, halfHeight: 0.5, settings });
+    assert.equal(key === "colliderDepthForward" ? extent.minZ : extent.maxZ, factor === 0 ? 0 : (key === "colliderDepthForward" ? -1 : 1) * colliderDefaultDepthWu * factor, `Boxing ${key} moves only its scored Z face`);
+  }
+  for (const invalid of [-1, NaN, Infinity, -Infinity]) {
+    assert.throws(() => normalizeColliderSettings({ [key]: invalid }), TypeError);
+    assert.equal(isColliderSettings({ ...colliderSettingsDefaults.boxing, [key]: invalid }), false);
+  }
+}
+assert.throws(() => resolveColliderBounds({ mode: "boxing", center: { x: 0, y: 0, z: 0 }, halfWidth: 0.5, halfHeight: 0.5, settings: normalizeColliderSettings({ colliderDepthForward: Number.MAX_VALUE }), timingWindowMs: 180, speedWuPerMs: 2 }), /nonfinite/u, "nonrepresentable derived Boxing bounds fail rather than clamp");
 assert.equal(colliderSettingsDefaults.flow.colliderVisible, false);
 assert.equal(colliderSettingsDefaults.boxing.colliderDepthBackward, 1);
 assert.equal(Object.isFrozen(flow), true);
@@ -76,7 +90,7 @@ assert.deepEqual(resolveColliderBounds({ ...input, mode: "boxing", settings: box
 for (const bad of [
   null, [], "flow", { colliderVisible: "true" }, { colliderScale: 0 },
   { colliderScale: NaN }, { colliderScale: Infinity }, { colliderScale: null },
-  { colliderDepthForward: 0.9 }, { colliderDepthBackward: -1 },
+  { colliderDepthForward: -1 }, { colliderDepthBackward: -1 },
   { colliderVisible: undefined }, { visibleWristObstacleRadius: "true" },
   { visibleWristObstacleRadius: undefined }, { wristBombColliderScale: -0.01 },
   { wristBombColliderScale: 2.01 }, { wristBombColliderScale: NaN },

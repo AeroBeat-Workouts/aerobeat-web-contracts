@@ -30,7 +30,7 @@ export function isColliderSettings(value) {
   return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
     typeof value.colliderVisible === "boolean" &&
     isFiniteNumber(value.colliderScale) && value.colliderScale > 0 &&
-    isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 1 &&
+    isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 0 &&
     isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 0 &&
     typeof value.visibleWristObstacleRadius === "boolean" &&
     isFiniteNumber(value.wristBombColliderScale) && value.wristBombColliderScale >= 0 && value.wristBombColliderScale <= 2;
@@ -51,8 +51,8 @@ export function isFlowColliderSettings(value) {
  * Strictly normalize a flat six-field settings record for either mode. Missing
  * fields use the shared defaults; unknown fields (including a per-mode map) and
  * explicit undefined, null, NaN, or infinity fail. This legacy/Boxing flat
- * validator requires scale >0 and forward depth >=1; use the separate Flow
- * validator for all finite nonnegative saber controls. Legacy bounds still
+ * validator requires scale >0 and both depths finite nonnegative; use the
+ * separate Flow validator for finite nonnegative saber scale. Legacy bounds still
  * use the factors as world-Z extents;
  * Flow saber reach is separately resolved along its rotating local blade axis.
  * Wrist bomb radius visibility and its
