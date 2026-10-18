@@ -43,6 +43,9 @@ for (const scale of [0, 0.25, 1.5, 2]) {
 }
 const flow = normalizeColliderSettings({ colliderVisible: true, colliderScale: 2, colliderDepthForward: 3 });
 const boxing = normalizeColliderSettings({ colliderDepthBackward: 2 });
+const zeroRear = normalizeColliderSettings({ colliderDepthBackward: 0 });
+assert.equal(zeroRear.colliderDepthBackward, 0, "Flow hilt-origin rear zero is a valid bounded depth");
+assert.deepEqual(resolveColliderBounds({ mode: "flow", center: { x: 0, y: 0, z: 0 }, halfWidth: 0.5, halfHeight: 0.5, settings: zeroRear }), { minX: -0.5, maxX: 0.5, minY: -0.5, maxY: 0.5, minZ: -1.08, maxZ: 0 });
 assert.equal(isColliderSettings(flow), true);
 assert.equal(colliderSettingsDefaults.flow.colliderVisible, false);
 assert.equal(colliderSettingsDefaults.boxing.colliderDepthBackward, 1);

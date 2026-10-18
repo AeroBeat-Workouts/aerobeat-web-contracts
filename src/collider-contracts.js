@@ -31,7 +31,7 @@ export function isColliderSettings(value) {
     typeof value.colliderVisible === "boolean" &&
     isFiniteNumber(value.colliderScale) && value.colliderScale > 0 &&
     isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 1 &&
-    isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 1 &&
+    isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 0 &&
     typeof value.visibleWristObstacleRadius === "boolean" &&
     isFiniteNumber(value.wristBombColliderScale) && value.wristBombColliderScale >= 0 && value.wristBombColliderScale <= 2;
 }
@@ -39,8 +39,11 @@ export function isColliderSettings(value) {
 /**
  * Strictly normalize a flat six-field settings record for either mode. Missing
  * fields use the shared defaults; unknown fields (including a per-mode map) and
- * explicit undefined, null, NaN, or infinity fail. Depth factors are >= 1:
- * 1 keeps the base depth, 2 doubles it. Wrist bomb radius visibility and its
+ * explicit undefined, null, NaN, or infinity fail. Forward depth is >= 1;
+ * backward depth admits 0 for the Flow hilt boundary (Boxing's setup keeps its
+ * own >= 1 bound). Legacy bounds still use the factors as world-Z extents;
+ * Flow saber reach is separately resolved along its rotating local blade axis.
+ * Wrist bomb radius visibility and its
  * continuous 0..2 scale are independent of the equipment collider settings.
  * @param {unknown} value
  * @returns {AeroColliderSettings}
