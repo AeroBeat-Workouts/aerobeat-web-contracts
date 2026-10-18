@@ -7,8 +7,10 @@ import {
   isColliderBounds,
   isColliderPoint,
   isColliderSettings,
+  isFlowColliderSettings,
   isPointInsideColliderBounds,
   normalizeColliderSettings,
+  normalizeFlowColliderSettings,
   resolveColliderBounds
 } from "../src/index.js";
 import { resolveColliderBounds as subpathResolve } from "@aerobeat/web-contracts/collider-contracts";
@@ -47,6 +49,16 @@ const zeroRear = normalizeColliderSettings({ colliderDepthBackward: 0 });
 assert.equal(zeroRear.colliderDepthBackward, 0, "Flow hilt-origin rear zero is a valid bounded depth");
 assert.deepEqual(resolveColliderBounds({ mode: "flow", center: { x: 0, y: 0, z: 0 }, halfWidth: 0.5, halfHeight: 0.5, settings: zeroRear }), { minX: -0.5, maxX: 0.5, minY: -0.5, maxY: 0.5, minZ: -1.08, maxZ: 0 });
 assert.equal(isColliderSettings(flow), true);
+for (const factor of [0, 0.00001, 1, 9999999, Number.MAX_VALUE]) {
+  const settings = normalizeFlowColliderSettings({ colliderScale: factor, colliderDepthForward: factor, colliderDepthBackward: factor });
+  assert.equal(isFlowColliderSettings(settings), true, `finite Flow Scale/Depth ${factor} accepted`);
+  assert.deepEqual([settings.colliderScale, settings.colliderDepthForward, settings.colliderDepthBackward], [factor, factor, factor]);
+}
+for (const invalid of [-1, NaN, Infinity, -Infinity]) for (const key of ["colliderScale", "colliderDepthForward", "colliderDepthBackward"]) {
+  assert.throws(() => normalizeFlowColliderSettings({ [key]: invalid }), TypeError, `reject ${key} ${invalid}`);
+}
+assert.throws(() => resolveColliderBounds({ mode: "flow", center: { x: 0, y: 0, z: 0 }, halfWidth: 2, halfHeight: 2, settings: normalizeFlowColliderSettings({ colliderScale: Number.MAX_VALUE }) }), /nonfinite/u, "finite input with unrepresentable derived target geometry fails truthfully");
+assert.equal(isColliderSettings(normalizeFlowColliderSettings({ colliderScale: 0, colliderDepthForward: 0 })), false, "Boxing/shared legacy guard stays strict");
 assert.equal(colliderSettingsDefaults.flow.colliderVisible, false);
 assert.equal(colliderSettingsDefaults.boxing.colliderDepthBackward, 1);
 assert.equal(Object.isFrozen(flow), true);

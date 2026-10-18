@@ -30,6 +30,7 @@ import {
   resolveSaberCapsule,
   saberCapsuleGeometry,
   saberGeometry,
+  flowSolidBladeRadiusWu,
   slerpEquipmentQuaternionShortest
 } from "../src/index.js";
 
@@ -37,7 +38,8 @@ import {
 // flow saber capsule 0.75 x 0.18; boxing glove box 0.34 x 0.28 x 0.34 with
 // +0.05 grid-facing offset.
 assert.equal(saberGeometry.length, 0.75, "saber capsule length is 0.75 WU");
-assert.equal(saberGeometry.radius, 0.18, "saber capsule radius is 0.18 WU");
+assert.equal(saberGeometry.radius, 0.18, "legacy saber capsule radius remains 0.18 WU");
+assert.equal(flowSolidBladeRadiusWu, 0.024, "shared solid GLB blade radius, excluding glow and wider hilt");
 assert.deepEqual(Object.keys(saberGeometry).sort(), ["length", "radius"], "saber spec stores geometry only; direction comes from gameplay at runtime");
 assert.equal(gloveGeometry.x, 0.34, "glove box half-extent x (thumb side) is 0.34 WU");
 assert.equal(gloveGeometry.y, 0.28, "glove box half-extent y (up) is 0.28 WU");

@@ -19,7 +19,7 @@ const defaultSettings = Object.freeze({
   wristBombColliderScale: 1
 });
 
-/** Independent per-mode defaults; neither a rendering toggle nor depth modifies the equipment hit geometry. */
+/** Independent defaults. Visibility is presentation-only; Flow Scale/Depth affect its scored blade in gameplay. */
 export const colliderSettingsDefaults = Object.freeze({
   flow: Object.freeze({ ...defaultSettings }),
   boxing: Object.freeze({ ...defaultSettings })
@@ -36,12 +36,24 @@ export function isColliderSettings(value) {
     isFiniteNumber(value.wristBombColliderScale) && value.wristBombColliderScale >= 0 && value.wristBombColliderScale <= 2;
 }
 
+/** Flow-only flat settings: all three saber controls accept finite nonnegative values without an arbitrary maximum. @param {unknown} value @returns {value is AeroColliderSettings} */
+export function isFlowColliderSettings(value) {
+  return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
+    typeof value.colliderVisible === "boolean" &&
+    isFiniteNumber(value.colliderScale) && value.colliderScale >= 0 &&
+    isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 0 &&
+    isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 0 &&
+    typeof value.visibleWristObstacleRadius === "boolean" &&
+    isFiniteNumber(value.wristBombColliderScale) && value.wristBombColliderScale >= 0 && value.wristBombColliderScale <= 2;
+}
+
 /**
  * Strictly normalize a flat six-field settings record for either mode. Missing
  * fields use the shared defaults; unknown fields (including a per-mode map) and
- * explicit undefined, null, NaN, or infinity fail. Forward depth is >= 1;
- * backward depth admits 0 for the Flow hilt boundary (Boxing's setup keeps its
- * own >= 1 bound). Legacy bounds still use the factors as world-Z extents;
+ * explicit undefined, null, NaN, or infinity fail. This legacy/Boxing flat
+ * validator requires scale >0 and forward depth >=1; use the separate Flow
+ * validator for all finite nonnegative saber controls. Legacy bounds still
+ * use the factors as world-Z extents;
  * Flow saber reach is separately resolved along its rotating local blade axis.
  * Wrist bomb radius visibility and its
  * continuous 0..2 scale are independent of the equipment collider settings.
@@ -65,6 +77,20 @@ export function normalizeColliderSettings(value) {
   return Object.freeze(settings);
 }
 
+/** Normalize Flow-only flat settings, retaining exact field/prototype checks but accepting finite nonnegative saber controls. @param {unknown} value @returns {AeroColliderSettings} */
+export function normalizeFlowColliderSettings(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value) ||
+      (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) throw new TypeError("flow_collider_settings_invalid");
+  const keys = ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"];
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== "string" || !keys.includes(key) || !Object.getOwnPropertyDescriptor(value, key)?.enumerable ||
+        !("value" in Object.getOwnPropertyDescriptor(value, key))) throw new TypeError("flow_collider_settings_invalid");
+  }
+  const settings = { ...defaultSettings, ...value };
+  if (!isFlowColliderSettings(settings)) throw new TypeError("flow_collider_settings_invalid");
+  return Object.freeze(settings);
+}
+
 /** @param {unknown} value @returns {value is AeroColliderPoint} */
 export function isColliderPoint(value) {
   return hasExactKeys(value, ["x", "y", "z"]) &&
@@ -80,8 +106,9 @@ export function isColliderBounds(value) {
 }
 
 /**
- * Single world-space volume authority for gameplay collision and renderer wireframe.
- * Scale changes X/Y only; depth factors independently extend the two Z faces.
+ * Legacy world-space target bounds. Scale changes X/Y only; depth factors
+ * independently extend the two Z faces. The scored Flow saber and its visible
+ * hit outline use separate rotated solid-blade geometry, not these bounds.
  * `center.z` is the equipment visual plane; forward extends toward negative Z.
  * Caller timing overrides must be supplied together; otherwise use 180 * .006.
  * @param {unknown} input
@@ -96,7 +123,7 @@ export function resolveColliderBounds(input) {
   if ((input.mode !== "flow" && input.mode !== "boxing") || !isColliderPoint(input.center) ||
       !isFiniteNumber(input.halfWidth) || input.halfWidth <= 0 ||
       !isFiniteNumber(input.halfHeight) || input.halfHeight <= 0 ||
-      !isColliderSettings(input.settings)) {
+      !(input.mode === "flow" ? isFlowColliderSettings(input.settings) : isColliderSettings(input.settings))) {
     throw new TypeError("collider_bounds_input_invalid");
   }
   const timed = hasExactKeys(input, timingKeys);
@@ -111,6 +138,7 @@ export function resolveColliderBounds(input) {
     : colliderDefaultDepthWu;
   const halfWidth = input.halfWidth * input.settings.colliderScale;
   const halfHeight = input.halfHeight * input.settings.colliderScale;
+  if (!Number.isFinite(halfWidth) || !Number.isFinite(halfHeight) || !Number.isFinite(depth * input.settings.colliderDepthForward) || !Number.isFinite(depth * input.settings.colliderDepthBackward)) throw new TypeError("collider_bounds_nonfinite");
   const result = {
     minX: input.center.x - halfWidth,
     maxX: input.center.x + halfWidth,

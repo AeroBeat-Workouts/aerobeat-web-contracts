@@ -52,7 +52,10 @@ import { isFiniteNumber } from "./contract-guards.js";
  * @property {number} offsetZ Grid-facing center offset from the wrist sample (WU).
  */
 
-/** Flow saber capsule: 0.75 WU axis, 0.18 WU radius (GATE 1 decision 1). */
+/** Pinned solid GLB blade radius in WU; excludes its wider 0.03 hilt and visual-only 0.045 halo. Flow Scale1 scores this radius times resolved pose scale. */
+export const flowSolidBladeRadiusWu = 0.024;
+
+/** Legacy Flow saber capsule: 0.75 WU axis, 0.18 WU radius (GATE 1 decision 1); current scored Flow Scale1 uses flowSolidBladeRadiusWu instead. */
 export const saberGeometry = Object.freeze({
   length: 0.75,
   radius: 0.18
