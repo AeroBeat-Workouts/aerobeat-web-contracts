@@ -372,6 +372,43 @@ export function resolveGloveObb(value) {
   });
 }
 
+/** Flat-ended scored glove cylinder: local +Z, with rear zero at the visible fist back. */
+export const gloveCylinderGeometry = Object.freeze({
+  kind: /** @type {const} */ ("cylinder"),
+  backZ: gloveGeometry.offsetZ - gloveGeometry.z,
+  frontZ: gloveGeometry.offsetZ + gloveGeometry.z,
+  radius: gloveGeometry.x
+});
+
+/**
+ * Resolve the one judge-space cylinder used by Boxer scoring and Show volume.
+ * The radius scales independently of the two axial reach factors. With rear
+ * zero the back cap stays at the fist back; positive rear extends behind it.
+ * @param {unknown} value Strict resolved Boxing pose.
+ * @param {{scale?:number,depthForward?:number,depthBackward?:number}} [volume]
+ * @returns {Readonly<{start:AeroVector3,end:AeroVector3,axis:AeroVector3,radius:number}>}
+ */
+export function resolveGloveCylinder(value, volume = {}) {
+  const pose = createResolvedEquipmentPose(value);
+  if (pose.mode !== "boxing") throw new TypeError("glove_pose_mode_invalid");
+  const scale = volume.scale ?? 1;
+  const forward = volume.depthForward ?? 1;
+  const backward = volume.depthBackward ?? 0;
+  if (![scale, forward, backward].every((part) => isFiniteNumber(part) && part >= 0)) throw new TypeError("glove_cylinder_settings_invalid");
+  const backZ = gloveCylinderGeometry.backZ * pose.scale;
+  const length = (gloveCylinderGeometry.frontZ - gloveCylinderGeometry.backZ) * pose.scale;
+  const startZ = backZ - length * backward;
+  const endZ = backZ + length * forward;
+  const radius = gloveCylinderGeometry.radius * pose.scale * scale;
+  if (![backZ, length, startZ, endZ, endZ - startZ, radius, radius * 2].every(Number.isFinite)) throw new TypeError("glove_cylinder_geometry_nonfinite");
+  const axis = rotateVector(pose.orientation, { x: 0, y: 0, z: 1 });
+  const world = (z) => Object.freeze({ x: pose.anchor.x + axis.x * z, y: pose.anchor.y + axis.y * z, z: pose.anchor.z + axis.z * z });
+  const start = world(startZ);
+  const end = world(endZ);
+  if (![start.x, start.y, start.z, end.x, end.y, end.z, end.x - start.x, end.y - start.y, end.z - start.z].every(Number.isFinite)) throw new TypeError("glove_cylinder_geometry_nonfinite");
+  return Object.freeze({ start, end, axis, radius });
+}
+
 /**
  * Stable canonical UTF-8 hash input for exact equipment-config versions 2, 3, and 4.
  * The config must already be canonical JSON; this wrapper locks its truthful

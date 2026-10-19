@@ -14,6 +14,7 @@ import {
   equipmentMarkerVisibility,
   gloveGeometry,
   gloveObbGeometry,
+  gloveCylinderGeometry,
   isEquipmentConfigIdentity,
   isNormalizedEquipmentQuaternion,
   isResolvedEquipmentPose,
@@ -27,6 +28,7 @@ import {
   resolveFixedEquipmentQuaternion,
   resolveFlowEquipmentOrientation,
   resolveGloveObb,
+  resolveGloveCylinder,
   resolveSaberCapsule,
   saberCapsuleGeometry,
   saberGeometry,
@@ -264,6 +266,27 @@ approxQuaternion({ ...glove.axes.z, w: 0 }, { x: 1, y: 0, z: 0, w: 0 }, "glove z
 assertDeepFrozen(glove, "transformed glove is deeply frozen");
 assertDeepFrozen(saberCapsuleGeometry, "canonical saber descriptor is deeply frozen");
 assertDeepFrozen(gloveObbGeometry, "canonical glove descriptor is deeply frozen");
+assertDeepFrozen(gloveCylinderGeometry, "shared scored cylinder descriptor is frozen");
+assert.deepEqual(gloveCylinderGeometry, { kind: "cylinder", backZ: -.29000000000000004, frontZ: .39, radius: .34 });
+const cylinderPose = { ...glovePose, anchor: { x: 0, y: 0, z: 0 }, scale: 1, orientation: identityQuaternion };
+const cylinder = resolveGloveCylinder(cylinderPose, { scale: 1, depthForward: 1, depthBackward: 0 });
+approx(cylinder.start.z, -.29, "rear zero begins at visible fist back");
+approx(cylinder.end.z, .39, "forward unit ends at visible fist front");
+approx(cylinder.radius, .34, "radius equals visible fist width");
+assert.deepEqual(cylinder.axis, { x: 0, y: 0, z: 1 });
+assertDeepFrozen(cylinder, "resolved cylinder is deeply frozen");
+const rotatedCylinder = resolveGloveCylinder({ ...glovePose, scale: 2 }, { scale: .5, depthForward: 2, depthBackward: 3 });
+approx(rotatedCylinder.radius, .34, "collider scale independent of depth and pose scale");
+approx(rotatedCylinder.axis.x, 1, "rotation follows quaternion local Z");
+approx(rotatedCylinder.start.x, -1 + 2 * (-.29 - .68 * 3), "positive rear extends behind back cap");
+approx(rotatedCylinder.end.x, -1 + 2 * (-.29 + .68 * 2), "positive front length extends from back cap");
+assert.deepEqual(resolveGloveCylinder(cylinderPose, { scale: 0, depthForward: 0, depthBackward: 0 }).radius, 0);
+assert.ok(resolveGloveCylinder(cylinderPose, { scale: 9999999, depthForward: 9999999, depthBackward: 9999999 }).radius > 1e6);
+assert.throws(() => resolveGloveCylinder(flowPose), /glove_pose_mode_invalid/u);
+for (const key of ["scale", "depthForward", "depthBackward"]) for (const invalid of [-1, NaN, Infinity]) assert.throws(() => resolveGloveCylinder(cylinderPose, { [key]: invalid }), /glove_cylinder_settings_invalid/u);
+assert.throws(() => resolveGloveCylinder({ ...cylinderPose, scale: 100 }, { scale: Number.MAX_VALUE }), /glove_cylinder_geometry_nonfinite/u);
+assert.throws(() => resolveGloveCylinder(cylinderPose, { depthBackward: Number.MAX_VALUE, depthForward: Number.MAX_VALUE }), /glove_cylinder_geometry_nonfinite/u);
+assert.deepEqual(resolveGloveCylinder({ ...cylinderPose, orientation: negated }), resolveGloveCylinder({ ...cylinderPose, orientation: signed }), "quaternion sign equivalence retains cylinder geometry");
 
 const canonicalConfigJson = '{"a":1,"z":{"b":2}}';
 const identityInputV2 = equipmentConfigIdentityInput({
