@@ -11,7 +11,7 @@ import {
 import { isBodyGridAnchorSnapshot, isBodyGridCellEntry } from "./body-grid-contracts.js";
 
 /**
- * @typedef {"flow_grid_v1" | "flow_colliders_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1" | "boxing_collider_v1"} AeroRulesetId
+ * @typedef {"flow_grid_v1" | "flow_colliders_v1" | "boxing_semantic_track_v1" | "boxing_spatial_grid_v1" | "boxing_collider_v1" | "boxing_collider_knee_v1"} AeroRulesetId
  */
 
 /**
@@ -339,6 +339,14 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  */
 
 /**
+ * Optional current-measurement hip/knee/ankle positions. Knee scoring consumes
+ * only fresh measured evidence; frozen upper-body positions never replay legs.
+ * @typedef {Readonly<{x:number,y:number}>} AeroMeasuredKneePoint
+ * @typedef {Readonly<{side:"left"|"right",hip:AeroMeasuredKneePoint,knee:AeroMeasuredKneePoint,ankle:AeroMeasuredKneePoint,confidence:number}>} AeroMeasuredKneeLeg
+ * @typedef {Readonly<{schema:"aerobeat/measured_knee_pose",version:1,calibrationId:string,measuredSourceFrameId:string,measurementTimestampMs:number,legs:readonly AeroMeasuredKneeLeg[]}>} AeroMeasuredKneePoseSnapshot
+ */
+
+/**
  * Gameplay evidence frame.
  *
  * A `measured` frame carries the data of one real source frame; such frames
@@ -380,6 +388,7 @@ export function normalizeBoxingColliderSetupFields(snapshot) {
  * @property {AeroGameplayEvidenceProvenance} provenance Evidence provenance.
  * @property {number} [frozenTickId] Per-tick evaluation identity, present exactly when provenance is "frozen".
  * @property {readonly AeroBoxingAction[]} activeBoxingActions Positive semantic observations; overlapping actions are allowed. Empty on frozen frames.
+ * @property {AeroMeasuredKneePoseSnapshot} [kneePose] Fresh measured hip/knee/ankle joint positions for at most two visible legs; never present on frozen or predicted evidence.
  * @property {readonly import("./body-grid-contracts.js").AeroBodyGridAnchorSnapshot[]} anchors Measured anchor snapshots; held anchor snapshots on frozen frames.
  * @property {readonly import("./body-grid-contracts.js").AeroBodyGridCellEntry[]} entries Measured cell entries with optional eight-way directional evidence. Empty on frozen frames.
  */
@@ -505,7 +514,8 @@ export const rulesetIds = Object.freeze([
   "flow_colliders_v1",
   "boxing_semantic_track_v1",
   "boxing_spatial_grid_v1",
-  "boxing_collider_v1"
+  "boxing_collider_v1",
+  "boxing_collider_knee_v1"
 ]);
 
 /**
@@ -585,6 +595,29 @@ export const prototypeJudgementDefaults = Object.freeze({
   minimumPunchSpacingMs: 360
 });
 
+/** @param {unknown} value @returns {value is AeroMeasuredKneePoint} */
+function isMeasuredKneePoint(value) {
+  return hasExactKeys(value, ["x", "y"]) && Number.isFinite(value.x) && Number.isFinite(value.y);
+}
+
+/** @param {unknown} value @returns {value is AeroMeasuredKneePoseSnapshot} */
+export function isMeasuredKneePoseSnapshot(value) {
+  if (!hasExactKeys(value, ["schema", "version", "calibrationId", "measuredSourceFrameId", "measurementTimestampMs", "legs"]) ||
+    value.schema !== "aerobeat/measured_knee_pose" || value.version !== 1 ||
+    !isNonEmptyString(value.calibrationId) || !isNonEmptyString(value.measuredSourceFrameId) ||
+    !isNonNegativeFiniteNumber(value.measurementTimestampMs) || !Array.isArray(value.legs) ||
+    value.legs.length < 1 || value.legs.length > 2) return false;
+  const sides = new Set();
+  for (const leg of value.legs) {
+    if (!hasExactKeys(leg, ["side", "hip", "knee", "ankle", "confidence"]) ||
+      (leg.side !== "left" && leg.side !== "right") || sides.has(leg.side) ||
+      !isMeasuredKneePoint(leg.hip) || !isMeasuredKneePoint(leg.knee) || !isMeasuredKneePoint(leg.ankle) ||
+      typeof leg.confidence !== "number" || !Number.isFinite(leg.confidence) || leg.confidence < 0 || leg.confidence > 1) return false;
+    sides.add(leg.side);
+  }
+  return true;
+}
+
 /**
  * @param {unknown} value
  * @returns {value is AeroGameplayEvidenceSnapshot}
@@ -605,6 +638,7 @@ export function isGameplayEvidenceSnapshot(value) {
     isNonEmptyString(value.measuredSourceFrameId) &&
     isNonNegativeFiniteNumber(value.measurementTimestampMs) &&
     provenanceValid &&
+    (!Object.hasOwn(value, "kneePose") || (value.provenance === "measured" && isMeasuredKneePoseSnapshot(value.kneePose) && value.kneePose.calibrationId === value.calibrationId && value.kneePose.measuredSourceFrameId === value.measuredSourceFrameId && value.kneePose.measurementTimestampMs === value.measurementTimestampMs)) &&
     Array.isArray(value.activeBoxingActions) && value.activeBoxingActions.every((item) => isOneOf(item, boxingActions)) &&
     Array.isArray(value.anchors) && value.anchors.every(isBodyGridAnchorSnapshot) &&
     Array.isArray(value.entries) && value.entries.every(isBodyGridCellEntry);

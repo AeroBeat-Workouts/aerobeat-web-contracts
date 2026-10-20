@@ -197,7 +197,7 @@ assert.equal(serviceIds.bodyGrid, "aero.input.body-grid");
 assert.equal(serviceIds.beatSaverVendor, "aero.vendor.beatsaver");
 assert.equal(serviceIds.contentAuthoring, "aero.content.authoring");
 assert.equal(eventNames.contentImportChanged, "aero:content:import-changed");
-assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_colliders_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1", "boxing_collider_v1"]);
+assert.deepEqual(rulesetIds, ["flow_grid_v1", "flow_colliders_v1", "boxing_semantic_track_v1", "boxing_spatial_grid_v1", "boxing_collider_v1", "boxing_collider_knee_v1"]);
 for (const rulesetId of rulesetIds) assert.equal(isRulesetId(rulesetId), true);
 for (const invalidRulesetId of ["flow_colliders", "FLOW_COLLIDERS_V1", "flow-colliders-v1", " flow_colliders_v1", "boxing_collider", "BOXING_COLLIDER_V1", null]) {
   assert.equal(isRulesetId(invalidRulesetId), false, "ruleset aliases and non-string values reject");
@@ -468,6 +468,14 @@ const guardEvidence = {
   entries: []
 };
 assert.equal(isGameplayEvidenceSnapshot(guardEvidence), true, "ordinary guard remains valid alongside other actions");
+const kneePoint = { x: -.2, y: 1.4 };
+const kneePose = { schema: "aerobeat/measured_knee_pose", version: 1, calibrationId: "cal-1", measuredSourceFrameId: "epoch:1", measurementTimestampMs: 100, legs: [{ side: "left", hip: kneePoint, knee: { x: .2, y: .9 }, ankle: { x: .2, y: 1.5 }, confidence: .9 }] };
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, kneePose }), true, "fresh measured lower-body points may be outside upper-body grid");
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, kneePose: { ...kneePose, legs: [] } }), false, "empty knee pose is absent, never a stale placeholder");
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, kneePose: { ...kneePose, legs: [...kneePose.legs, kneePose.legs[0]] } }), false, "duplicate knee side cannot add a second scored leg");
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, kneePose: { ...kneePose, legs: [{ ...kneePose.legs[0], knee: { x: Number.NaN, y: .9 } }] } }), false, "nonfinite knee geometry cannot reach gameplay");
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, kneePose: { ...kneePose, measuredSourceFrameId: "stale" } }), false, "knee source frame must bind to the same measurement");
+assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, kneePose, provenance: "frozen", frozenTickId: 1 }), false, "frozen upper-body evidence cannot replay an old knee hit");
 for (const invalid of ["crossed_guard", "CROSSED_GUARD", " crossed_guard", null, { action: "crossed_guard" }]) {
   assert.equal(isGameplayEvidenceSnapshot({ ...guardEvidence, activeBoxingActions: [invalid] }), false, "removed guard action and untrusted aliases reject");
 }
