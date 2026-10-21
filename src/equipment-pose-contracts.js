@@ -372,7 +372,7 @@ export function resolveGloveObb(value) {
   });
 }
 
-/** Flat-ended scored glove cylinder: local +Z, with rear zero at the visible fist back. */
+/** Flat-ended scored glove cylinder: legacy cap names follow GLB local +Z; incoming targets occupy local −Z at the default glove pose. */
 export const gloveCylinderGeometry = Object.freeze({
   kind: /** @type {const} */ ("cylinder"),
   backZ: gloveGeometry.offsetZ - gloveGeometry.z,
@@ -382,8 +382,9 @@ export const gloveCylinderGeometry = Object.freeze({
 
 /**
  * Resolve the one judge-space cylinder used by Boxer scoring and Show volume.
- * The radius scales independently of the two axial reach factors. With rear
- * zero the back cap stays at the fist back; positive rear extends behind it.
+ * The radius scales independently of the two axial reach factors. At the
+ * default glove pose incoming beats occupy local −Z. Anchor both extensions
+ * at the rear cap so the historical +1/−0 cylinder stays exactly in place.
  * @param {unknown} value Strict resolved Boxing pose.
  * @param {{scale?:number,depthForward?:number,depthBackward?:number}} [volume]
  * @returns {Readonly<{start:AeroVector3,end:AeroVector3,axis:AeroVector3,radius:number}>}
@@ -395,12 +396,12 @@ export function resolveGloveCylinder(value, volume = {}) {
   const forward = volume.depthForward ?? 1;
   const backward = volume.depthBackward ?? 0;
   if (![scale, forward, backward].every((part) => isFiniteNumber(part) && part >= 0)) throw new TypeError("glove_cylinder_settings_invalid");
-  const backZ = gloveCylinderGeometry.backZ * pose.scale;
+  const rearCapZ = gloveCylinderGeometry.frontZ * pose.scale;
   const length = (gloveCylinderGeometry.frontZ - gloveCylinderGeometry.backZ) * pose.scale;
-  const startZ = backZ - length * backward;
-  const endZ = backZ + length * forward;
+  const startZ = rearCapZ - length * forward;
+  const endZ = rearCapZ + length * backward;
   const radius = gloveCylinderGeometry.radius * pose.scale * scale;
-  if (![backZ, length, startZ, endZ, endZ - startZ, radius, radius * 2].every(Number.isFinite)) throw new TypeError("glove_cylinder_geometry_nonfinite");
+  if (![rearCapZ, length, startZ, endZ, endZ - startZ, radius, radius * 2].every(Number.isFinite)) throw new TypeError("glove_cylinder_geometry_nonfinite");
   const axis = rotateVector(pose.orientation, { x: 0, y: 0, z: 1 });
   const world = (z) => Object.freeze({ x: pose.anchor.x + axis.x * z, y: pose.anchor.y + axis.y * z, z: pose.anchor.z + axis.z * z });
   const start = world(startZ);
