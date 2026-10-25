@@ -372,7 +372,7 @@ export function resolveGloveObb(value) {
   });
 }
 
-/** Flat-ended scored glove cylinder: legacy cap names follow GLB local +Z; incoming targets occupy local −Z at the default glove pose. */
+/** Flat-ended scored glove cylinder: legacy cap names retain their values, but scoring always follows world Z; incoming targets occupy world −Z. */
 export const gloveCylinderGeometry = Object.freeze({
   kind: /** @type {const} */ ("cylinder"),
   backZ: gloveGeometry.offsetZ - gloveGeometry.z,
@@ -383,7 +383,7 @@ export const gloveCylinderGeometry = Object.freeze({
 /**
  * Resolve the one judge-space cylinder used by Boxer scoring and Show volume.
  * The radius scales independently of the two axial reach factors. At the
- * default glove pose incoming beats occupy local −Z. Anchor both extensions
+ * default glove pose incoming beats occupy world −Z. Anchor both extensions
  * at the rear cap so the historical +1/−0 cylinder stays exactly in place.
  * @param {unknown} value Strict resolved Boxing pose.
  * @param {{scale?:number,depthForward?:number,depthBackward?:number}} [volume]
@@ -402,8 +402,8 @@ export function resolveGloveCylinder(value, volume = {}) {
   const endZ = rearCapZ + length * backward;
   const radius = gloveCylinderGeometry.radius * pose.scale * scale;
   if (![rearCapZ, length, startZ, endZ, endZ - startZ, radius, radius * 2].every(Number.isFinite)) throw new TypeError("glove_cylinder_geometry_nonfinite");
-  const axis = rotateVector(pose.orientation, { x: 0, y: 0, z: 1 });
-  const world = (z) => Object.freeze({ x: pose.anchor.x + axis.x * z, y: pose.anchor.y + axis.y * z, z: pose.anchor.z + axis.z * z });
+  const axis = Object.freeze({ x: 0, y: 0, z: 1 });
+  const world = (z) => Object.freeze({ x: pose.anchor.x, y: pose.anchor.y, z: pose.anchor.z + z });
   const start = world(startZ);
   const end = world(endZ);
   if (![start.x, start.y, start.z, end.x, end.y, end.z, end.x - start.x, end.y - start.y, end.z - start.z].every(Number.isFinite)) throw new TypeError("glove_cylinder_geometry_nonfinite");

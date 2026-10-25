@@ -283,9 +283,10 @@ approx(backwardCylinder.start.z, -.29, "backward depth keeps the default incomin
 approx(backwardCylinder.end.z, .39 + .68 * 4, "backward depth reaches spent positive Z");
 const rotatedCylinder = resolveGloveCylinder({ ...glovePose, scale: 2 }, { scale: .5, depthForward: 2, depthBackward: 3 });
 approx(rotatedCylinder.radius, .34, "collider scale independent of depth and pose scale");
-approx(rotatedCylinder.axis.x, 1, "rotation follows quaternion local Z");
-approx(rotatedCylinder.start.x, -1 + 2 * (.39 - .68 * 2), "positive front follows rotated negative local Z");
-approx(rotatedCylinder.end.x, -1 + 2 * (.39 + .68 * 3), "positive rear follows rotated positive local Z");
+assert.deepEqual(rotatedCylinder.axis, { x: 0, y: 0, z: 1 }, "scored axis remains fixed world Z despite glove art rotation");
+assert.deepEqual(rotatedCylinder.start, { x: -1, y: .5, z: 2 + 2 * (.39 - .68 * 2) });
+assert.deepEqual(rotatedCylinder.end, { x: -1, y: .5, z: 2 + 2 * (.39 + .68 * 3) });
+assert.deepEqual(rotatedCylinder, resolveGloveCylinder({ ...glovePose, scale: 2, orientation: identityQuaternion }, { scale: .5, depthForward: 2, depthBackward: 3 }), "rotating wearable glove art never changes scored contact volume");
 assert.deepEqual(resolveGloveCylinder(cylinderPose, { scale: 0, depthForward: 0, depthBackward: 0 }).radius, 0);
 assert.ok(resolveGloveCylinder(cylinderPose, { scale: 9999999, depthForward: 9999999, depthBackward: 9999999 }).radius > 1e6);
 assert.throws(() => resolveGloveCylinder(flowPose), /glove_pose_mode_invalid/u);
