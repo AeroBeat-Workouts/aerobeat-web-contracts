@@ -2,8 +2,18 @@
 
 import { hasExactKeys } from "./contract-guards.js";
 
-/** Maximum normalized obstacles accepted in one chart. */
-export const maximumObstaclesPerChart = 512;
+/**
+ * Maximum normalized obstacles accepted in one chart.
+ *
+ * Raised from 512 in 0.0.148 after a real human-made map ("On My Knees", BeatSaver
+ * 54441) failed to import: its ExpertPlus chart carries 1,091 normalized walls once
+ * the 2,528 degenerate zero-size art placeholders are dropped at parse time. The
+ * bound exists to reject pathological content, not ordinary wall-heavy mapping, so
+ * it now leaves roughly 4x headroom over that measurement. Cost stays linear and
+ * bounded: conversion, validation and package JSON scale with the count, while
+ * runtime judging and rendering only touch walls inside the active time window.
+ */
+export const maximumObstaclesPerChart = 4096;
 
 /**
  * Exact provider-coordinate evidence retained beside normalized gameplay geometry.
