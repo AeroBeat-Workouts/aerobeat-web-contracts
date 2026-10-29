@@ -3,7 +3,7 @@
 import { hasExactKeys, isFiniteNumber } from "./contract-guards.js";
 
 /** @typedef {"flow" | "boxing"} AeroColliderMode */
-/** @typedef {Readonly<{colliderVisible: boolean, colliderScale: number, colliderDepthForward: number, colliderDepthBackward: number, visibleWristObstacleRadius: boolean, wristBombColliderScale: number}>} AeroColliderSettings */
+/** @typedef {Readonly<{colliderVisible: boolean, colliderScale: number, colliderDepthForward: number, colliderDepthBackward: number, colliderDepthBackwardAthleteFacing: boolean, visibleWristObstacleRadius: boolean, wristBombColliderScale: number}>} AeroColliderSettings */
 /** @typedef {Readonly<{x: number, y: number, z: number}>} AeroColliderPoint */
 /** @typedef {Readonly<{minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number}>} AeroColliderBounds */
 
@@ -15,20 +15,22 @@ const defaultSettings = Object.freeze({
   colliderScale: 1,
   colliderDepthForward: 1,
   colliderDepthBackward: 1,
+  colliderDepthBackwardAthleteFacing: true,
   visibleWristObstacleRadius: false,
   wristBombColliderScale: 1
 });
 
 /** Independent defaults. Visibility is presentation-only; Flow Scale/Depth affect its scored blade in gameplay. */
 export const colliderSettingsDefaults = Object.freeze({
-  flow: Object.freeze({ ...defaultSettings }),
+  flow: Object.freeze({ ...defaultSettings, colliderDepthBackwardAthleteFacing: false }),
   boxing: Object.freeze({ ...defaultSettings })
 });
 
 /** @param {unknown} value @returns {value is AeroColliderSettings} */
 export function isColliderSettings(value) {
-  return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
+  return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "colliderDepthBackwardAthleteFacing", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
     typeof value.colliderVisible === "boolean" &&
+    typeof value.colliderDepthBackwardAthleteFacing === "boolean" &&
     isFiniteNumber(value.colliderScale) && value.colliderScale >= 0 &&
     isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 0 &&
     isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 0 &&
@@ -38,8 +40,9 @@ export function isColliderSettings(value) {
 
 /** Flow-only flat settings: all three saber controls accept finite nonnegative values without an arbitrary maximum. @param {unknown} value @returns {value is AeroColliderSettings} */
 export function isFlowColliderSettings(value) {
-  return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
+  return hasExactKeys(value, ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "colliderDepthBackwardAthleteFacing", "visibleWristObstacleRadius", "wristBombColliderScale"]) &&
     typeof value.colliderVisible === "boolean" &&
+    typeof value.colliderDepthBackwardAthleteFacing === "boolean" &&
     isFiniteNumber(value.colliderScale) && value.colliderScale >= 0 &&
     isFiniteNumber(value.colliderDepthForward) && value.colliderDepthForward >= 0 &&
     isFiniteNumber(value.colliderDepthBackward) && value.colliderDepthBackward >= 0 &&
@@ -48,13 +51,12 @@ export function isFlowColliderSettings(value) {
 }
 
 /**
- * Strictly normalize a flat six-field settings record for either mode. Missing
- * fields use the shared defaults; unknown fields (including a per-mode map) and
- * explicit undefined, null, NaN, or infinity fail. This legacy/Boxing flat
- * validator requires scale >0 and both depths finite nonnegative; use the
- * separate Flow validator for finite nonnegative saber scale. Legacy bounds still
- * use the factors as world-Z extents;
- * Flow saber reach is separately resolved along its rotating local blade axis.
+ * Strictly normalize a flat settings record with Boxing defaults. Missing
+ * fields use defaults; unknown fields (including a per-mode map) and explicit
+ * undefined, null, NaN, or infinity fail. Scale and depths are finite nonnegative.
+ * Flow callers use normalizeFlowColliderSettings for its different rear-direction
+ * default. Legacy bounds still use factors as world-Z extents; equipment parts
+ * separately resolve the scored reach.
  * Wrist bomb radius visibility and its
  * continuous 0..2 scale are independent of the equipment collider settings.
  * @param {unknown} value
@@ -65,7 +67,7 @@ export function normalizeColliderSettings(value) {
       (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) {
     throw new TypeError("collider_settings_invalid");
   }
-  const keys = ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"];
+  const keys = ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "colliderDepthBackwardAthleteFacing", "visibleWristObstacleRadius", "wristBombColliderScale"];
   const ownKeys = Reflect.ownKeys(value);
   if (ownKeys.some((key) => typeof key !== "string" || !keys.includes(key) ||
       !Object.getOwnPropertyDescriptor(value, key)?.enumerable ||
@@ -81,12 +83,12 @@ export function normalizeColliderSettings(value) {
 export function normalizeFlowColliderSettings(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value) ||
       (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) throw new TypeError("flow_collider_settings_invalid");
-  const keys = ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "visibleWristObstacleRadius", "wristBombColliderScale"];
+  const keys = ["colliderVisible", "colliderScale", "colliderDepthForward", "colliderDepthBackward", "colliderDepthBackwardAthleteFacing", "visibleWristObstacleRadius", "wristBombColliderScale"];
   for (const key of Reflect.ownKeys(value)) {
     if (typeof key !== "string" || !keys.includes(key) || !Object.getOwnPropertyDescriptor(value, key)?.enumerable ||
         !("value" in Object.getOwnPropertyDescriptor(value, key))) throw new TypeError("flow_collider_settings_invalid");
   }
-  const settings = { ...defaultSettings, ...value };
+  const settings = { ...colliderSettingsDefaults.flow, ...value };
   if (!isFlowColliderSettings(settings)) throw new TypeError("flow_collider_settings_invalid");
   return Object.freeze(settings);
 }

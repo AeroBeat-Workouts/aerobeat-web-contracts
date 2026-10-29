@@ -30,11 +30,17 @@ import {
   resolveGloveObb,
   resolveGloveCylinder,
   resolveSaberCapsule,
+  resolveSaberColliderParts,
+  resolveGloveColliderParts,
   saberCapsuleGeometry,
   saberGeometry,
   flowSolidBladeRadiusWu,
   slerpEquipmentQuaternionShortest
 } from "../src/index.js";
+
+import { resolveSaberColliderParts as saberPartsSubpath, resolveGloveColliderParts as glovePartsSubpath } from "@aerobeat/web-contracts/equipment-pose-contracts";
+assert.equal(saberPartsSubpath, resolveSaberColliderParts);
+assert.equal(glovePartsSubpath, resolveGloveColliderParts);
 
 // GATE 1 (2026-09-17) locked geometry, JUDGE-SPACE WU:
 // flow saber capsule 0.75 x 0.18; boxing glove box 0.34 x 0.28 x 0.34 with
@@ -289,6 +295,35 @@ assert.deepEqual(rotatedCylinder.end, { x: -1, y: .5, z: 2 + 2 * (.39 + .68 * 3)
 assert.deepEqual(rotatedCylinder, resolveGloveCylinder({ ...glovePose, scale: 2, orientation: identityQuaternion }, { scale: .5, depthForward: 2, depthBackward: 3 }), "rotating wearable glove art never changes scored contact volume");
 assert.deepEqual(resolveGloveCylinder(cylinderPose, { scale: 0, depthForward: 0, depthBackward: 0 }).radius, 0);
 assert.ok(resolveGloveCylinder(cylinderPose, { scale: 9999999, depthForward: 9999999, depthBackward: 9999999 }).radius > 1e6);
+// Public union helpers preserve front geometry and never bridge the bent arms.
+for (const angles of [{ x: 0, y: 0, z: 0 }, { x: 25, y: 35, z: 65 }, { x: 0, y: 90, z: 0 }]) {
+  const orientation = equipmentEulerDegreesToQuaternion(angles);
+  const saberPose = { ...flowPose, orientation };
+  const boxerPose = { ...cylinderPose, orientation };
+  for (const backward of [0, 1, 3]) {
+    const volume = { scale: .5, depthForward: 2, depthBackward: backward };
+    const saberOff = resolveSaberColliderParts(saberPose, { ...volume, depthBackwardAthleteFacing: false });
+    const saberOn = resolveSaberColliderParts(saberPose, { ...volume, depthBackwardAthleteFacing: true });
+    assert.equal(saberOff.length, 1);
+    assert.deepEqual(saberOff[0].end, saberOn[0].end, "rotated Flow front invariant");
+    assert.deepEqual(saberOn[0], resolveSaberColliderParts(saberPose, { ...volume, depthBackward: 0 })[0]);
+    assert.equal(saberOn.length, backward === 0 ? 1 : 2);
+    if (backward) { assert.deepEqual(saberOn[1].start, saberOn[0].start); assert.deepEqual(saberOn[1].axis, { x: 0, y: 0, z: 1 }); }
+    const boxerOn = resolveGloveColliderParts(boxerPose, { ...volume, depthBackwardAthleteFacing: true });
+    const boxerOff = resolveGloveColliderParts(boxerPose, { ...volume, depthBackwardAthleteFacing: false });
+    assert.deepEqual(boxerOn, [resolveGloveCylinder(boxerPose, volume)], "default Boxer retains combined world-Z cylinder");
+    assert.deepEqual(boxerOff[0], resolveGloveCylinder(boxerPose, { ...volume, depthBackward: 0 }), "rotated Boxer front invariant");
+    assert.equal(boxerOff.length, backward === 0 ? 1 : 2);
+    if (backward) { assert.deepEqual(boxerOff[1].start, boxerOff[0].end); const localRear = resolveGloveObb(boxerPose).axes.z; for (const key of ["x", "y", "z"]) assert.ok(Math.abs(boxerOff[1].axis[key] - localRear[key]) < 1e-12); }
+    for (const parts of [saberOff, saberOn, boxerOff, boxerOn]) { assertDeepFrozen(parts, "union parts immutable"); for (const part of parts) assert.ok(Math.abs(Math.hypot(part.axis.x, part.axis.y, part.axis.z) - 1) < 1e-12); }
+  }
+  for (const [resolver, pose] of [[resolveSaberColliderParts, saberPose], [resolveGloveColliderParts, boxerPose]]) {
+    for (const facing of [false, true]) { const parts = resolver(pose, { depthForward: 0, depthBackward: 0, depthBackwardAthleteFacing: facing }); assert.equal(parts.length, 1); assert.deepEqual(parts[0].start, parts[0].end); assert.ok(Math.abs(Math.hypot(...Object.values(parts[0].axis)) - 1) < 1e-12); }
+    for (const invalid of [null, 0, 1, "true"]) assert.throws(() => resolver(pose, { depthBackwardAthleteFacing: invalid }), TypeError);
+  }
+}
+assert.deepEqual(resolveSaberColliderParts(flowPose), resolveSaberColliderParts(flowPose, { depthBackwardAthleteFacing: false }));
+assert.deepEqual(resolveGloveColliderParts(cylinderPose), resolveGloveColliderParts(cylinderPose, { depthBackwardAthleteFacing: true }));
 assert.throws(() => resolveGloveCylinder(flowPose), /glove_pose_mode_invalid/u);
 for (const key of ["scale", "depthForward", "depthBackward"]) for (const invalid of [-1, NaN, Infinity]) assert.throws(() => resolveGloveCylinder(cylinderPose, { [key]: invalid }), /glove_cylinder_settings_invalid/u);
 assert.throws(() => resolveGloveCylinder({ ...cylinderPose, scale: 100 }, { scale: Number.MAX_VALUE }), /glove_cylinder_geometry_nonfinite/u);

@@ -1,7 +1,7 @@
 // @ts-check
 
 import { hasExactKeys, isFiniteNumber, isNonEmptyString } from "./contract-guards.js";
-import { gloveGeometry, saberGeometry } from "./equipment-contracts.js";
+import { gloveGeometry, saberGeometry, flowSolidBladeRadiusWu } from "./equipment-contracts.js";
 
 const NORMALIZED_EPSILON = 1e-12;
 const SLERP_LINEAR_THRESHOLD = 0.9995;
@@ -408,6 +408,57 @@ export function resolveGloveCylinder(value, volume = {}) {
   const end = world(endZ);
   if (![start.x, start.y, start.z, end.x, end.y, end.z, end.x - start.x, end.y - start.y, end.z - start.z].every(Number.isFinite)) throw new TypeError("glove_cylinder_geometry_nonfinite");
   return Object.freeze({ start, end, axis, radius });
+}
+
+/** @typedef {{scale?:number,depthForward?:number,depthBackward?:number,depthBackwardAthleteFacing?:boolean}} AeroColliderVolume */
+/** @typedef {Readonly<{start:AeroVector3,end:AeroVector3,radius:number,axis:AeroVector3}>} AeroEquipmentColliderPart */
+
+/** @param {AeroVector3} start @param {AeroVector3} axis @param {number} length @param {number} radius @returns {AeroEquipmentColliderPart} */
+function colliderPart(start, axis, length, radius) {
+  const end = Object.freeze({ x: start.x + axis.x * length, y: start.y + axis.y * length, z: start.z + axis.z * length });
+  if (![length, radius, radius * 2, ...Object.values(start), ...Object.values(end)].every(Number.isFinite)) throw new TypeError("collider_part_geometry_nonfinite");
+  return Object.freeze({ start, end, radius, axis });
+}
+
+/** Shared scored solid-blade reach; separate arms never create a diagonal bridge.
+ * @param {unknown} value @param {AeroColliderVolume} [volume] @returns {ReadonlyArray<AeroEquipmentColliderPart>}
+ */
+export function resolveSaberColliderParts(value, volume = {}) {
+  const pose = createResolvedEquipmentPose(value);
+  const capsule = resolveSaberCapsule(pose);
+  const forward = volume.depthForward ?? 1; const backward = volume.depthBackward ?? 0; const scale = volume.scale ?? 1;
+  const facing = Object.hasOwn(volume, "depthBackwardAthleteFacing") ? volume.depthBackwardAthleteFacing : false;
+  if (typeof facing !== "boolean" || ![forward, backward, scale].every((n) => isFiniteNumber(n) && n >= 0)) throw new TypeError("saber_collider_settings_invalid");
+  const length = Math.hypot(capsule.end.x - capsule.start.x, capsule.end.y - capsule.start.y, capsule.end.z - capsule.start.z);
+  const radius = flowSolidBladeRadiusWu * pose.scale * scale;
+  const rearLength = length * backward; const frontLength = length * forward;
+  if (![rearLength, frontLength, rearLength + frontLength].every(Number.isFinite)) throw new TypeError("saber_collider_geometry_nonfinite");
+  if (!facing) {
+    const start = Object.freeze({ x: capsule.start.x - capsule.axis.x * rearLength, y: capsule.start.y - capsule.axis.y * rearLength, z: capsule.start.z - capsule.axis.z * rearLength });
+    const part = colliderPart(start, capsule.axis, rearLength + frontLength, radius);
+    // Preserve the established endpoint arithmetic exactly.
+    const end = colliderPart(capsule.start, capsule.axis, frontLength, radius).end;
+    return Object.freeze([Object.freeze({ ...part, end })]);
+  }
+  const front = colliderPart(capsule.start, capsule.axis, frontLength, radius);
+  return Object.freeze(backward === 0 ? [front] : [front, colliderPart(capsule.start, Object.freeze({ x: 0, y: 0, z: 1 }), rearLength, radius)]);
+}
+
+/** Shared flat-capped Boxer union, retaining the original world-Z front body.
+ * @param {unknown} value @param {AeroColliderVolume} [volume] @returns {ReadonlyArray<AeroEquipmentColliderPart>}
+ */
+export function resolveGloveColliderParts(value, volume = {}) {
+  const facing = Object.hasOwn(volume, "depthBackwardAthleteFacing") ? volume.depthBackwardAthleteFacing : true;
+  if (typeof facing !== "boolean") throw new TypeError("glove_collider_settings_invalid");
+  const combined = resolveGloveCylinder(value, volume);
+  if (facing) return Object.freeze([combined]);
+  const pose = createResolvedEquipmentPose(value);
+  const front = resolveGloveCylinder(pose, { ...volume, depthBackward: 0 });
+  const backward = volume.depthBackward ?? 0;
+  if (backward === 0) return Object.freeze([front]);
+  const length = (gloveCylinderGeometry.frontZ - gloveCylinderGeometry.backZ) * pose.scale * backward;
+  const axis = rotateVector(pose.orientation, { x: 0, y: 0, z: 1 });
+  return Object.freeze([front, colliderPart(front.end, axis, length, front.radius)]);
 }
 
 /**

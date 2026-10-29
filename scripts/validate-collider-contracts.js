@@ -16,18 +16,24 @@ import {
 import { resolveColliderBounds as subpathResolve } from "@aerobeat/web-contracts/collider-contracts";
 
 assert.equal(subpathResolve, resolveColliderBounds);
+for (const normalize of [normalizeColliderSettings, normalizeFlowColliderSettings]) {
+  for (const facing of [false, true]) assert.equal(normalize({ colliderDepthBackwardAthleteFacing: facing }).colliderDepthBackwardAthleteFacing, facing);
+  for (const invalid of [undefined, null, 0, 1, "true"]) assert.throws(() => normalize({ colliderDepthBackwardAthleteFacing: invalid }), TypeError);
+}
+assert.equal(normalizeColliderSettings({ colliderScale: 2 }).colliderDepthBackwardAthleteFacing, true);
+assert.equal(normalizeFlowColliderSettings({ colliderScale: 2 }).colliderDepthBackwardAthleteFacing, false);
 assert.equal(colliderDefaultDepthWu, 1.08);
 for (const mode of ["flow", "boxing"]) {
   assert.deepEqual(colliderSettingsDefaults[mode], {
     colliderVisible: false, colliderScale: 1, colliderDepthForward: 1, colliderDepthBackward: 1,
-    visibleWristObstacleRadius: false, wristBombColliderScale: 1
+    visibleWristObstacleRadius: false, wristBombColliderScale: 1, colliderDepthBackwardAthleteFacing: mode === "boxing"
   });
   assert.equal(Object.isFrozen(colliderSettingsDefaults[mode]), true);
-  assert.deepEqual(normalizeColliderSettings({}), colliderSettingsDefaults[mode]);
+  assert.deepEqual((mode === "flow" ? normalizeFlowColliderSettings : normalizeColliderSettings)({}), colliderSettingsDefaults[mode]);
 }
 assert.deepEqual(normalizeColliderSettings({ colliderVisible: true, colliderScale: 2, colliderDepthForward: 3, colliderDepthBackward: 4 }), {
   colliderVisible: true, colliderScale: 2, colliderDepthForward: 3, colliderDepthBackward: 4,
-  visibleWristObstacleRadius: false, wristBombColliderScale: 1
+  visibleWristObstacleRadius: false, wristBombColliderScale: 1, colliderDepthBackwardAthleteFacing: true
 });
 for (const scale of [0, 0.25, 1.5, 2]) {
   const wristSettings = normalizeColliderSettings({ visibleWristObstacleRadius: true, wristBombColliderScale: scale });
